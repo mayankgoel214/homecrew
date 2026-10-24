@@ -56,7 +56,7 @@ Firestore (cases, chat, ledger) + Cloud Storage (frames)     Virginia Code: cach
 ## Responsible AI
 
 - **Grounding:** the Lawyer may only cite Virginia Code sections returned by its lookup tool. Statute text is pre-cached from the official Virginia Legislative Information System API. Every legal output says *"informational, not legal advice."*
-- **No invented issues:** the Inspector is told to report only what's visible. Confidence is always shown. Anything below 0.5 is flagged for human review.
+- **No invented issues:** the Inspector is told to report only what's visible. Confidence is always shown. Anything below 0.85 is flagged for human review.
 - **Human in the loop:** nothing exports, sends or files without an explicit Approve click.
 - **Bounded scope:** the agents only handle apartment conditions and Virginia landlord-tenant law. Off-topic or adversarial inputs get refused.
 - **Privacy:** no accounts. Name and address are optional. Photos are downscaled and stripped of GPS/EXIF on the device before upload. Cases auto-delete after 30 days.

@@ -191,7 +191,7 @@ Roles: **A = Frontend/camera**, **B = Agents/backend**, **C = Data, exports, dep
 | Risk | Mitigation |
 |---|---|
 | Camera blocked (no HTTPS) | Tunnel/Vercel from hour one; upload backup |
-| Gemma invents issues | confidence shown, `needs_human_check` below 0.5, "never invent" prompt rule, human approval before export |
+| Gemma invents issues | confidence shown, `needs_human_check` below 0.85, "never invent" prompt rule, human approval before export |
 | Bad bounding boxes | region fallback (whole frame + 3x3 grid cell) |
 | Rate limit / outage | `gemma-4-26b-a4b-it` fallback → Ollama `gemma4:e4b` → `DEMO_REPLAY` |
 | Statute API down | pre-cached `statutes.json` |

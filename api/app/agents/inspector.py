@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from app.gemma import GemmaError, Image, generate_json
 
 PROMPT = (Path(__file__).parent.parent / "prompts" / "inspector.md").read_text()
-HUMAN_CHECK_BELOW = 0.5
+# Measured on samples/: Gemma 4 puts clear defects at 0.9+ and plausible-but-ambiguous ones
+# (stains that could be dirt, peeling paint) at ~0.8 and rarely goes below 0.5.
+HUMAN_CHECK_BELOW = 0.85
 
 IssueType = Literal[
     "mold",

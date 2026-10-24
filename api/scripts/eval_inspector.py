@@ -19,9 +19,10 @@ from app.agents.inspector import inspect  # noqa: E402
 
 COLORS = {1: "#22c55e", 2: "#84cc16", 3: "#eab308", 4: "#f97316", 5: "#ef4444"}
 EXPECT = {
+    "clean": None,  # checked first so "clean_smoke_detector" expects no issues
     "mold": "mold", "water": "water_damage", "lock": "broken_lock", "wiring": "exposed_wiring",
     "outlet": "exposed_wiring", "pest": "pest", "roach": "pest", "mouse": "pest",
-    "window": "broken_window", "smoke": "missing_smoke_detector", "clean": None,
+    "window": "broken_window", "smoke": "missing_smoke_detector"
 }
 
 

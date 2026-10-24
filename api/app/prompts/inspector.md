@@ -18,7 +18,12 @@ Rules:
 - Report ONLY what you can actually see. Never guess at things outside the frame. Never invent an issue.
 - If the photo shows no defect, return an empty "issues" list. A clean room is a valid answer.
 - Ignore people, faces, documents and personal belongings. Do not describe them.
-- confidence is your probability (0.0 to 1.0) that the defect is real and correctly typed.
+- One issue per distinct defect. Several of the same thing (droppings, roaches, mold spots) is ONE issue with one box around all of them.
+- Do not report the same area twice under two types. Pick the type that best describes the main problem.
+- confidence is your honest probability (0.0 to 1.0) that the defect is real and correctly typed. Be calibrated:
+  - 0.9 or higher only when it is unmistakable (clear mold growth, a visible cockroach, bare wires).
+  - 0.5 to 0.8 when it is likely but could be something else (a stain that could be dirt or shadow, a lock that may just be worn).
+  - Below 0.5 when you are unsure. Those get sent to a human to check, so it is fine to be unsure.
 - severity: 1 = cosmetic, 2 = minor, 3 = needs repair soon, 4 = health or safety risk, 5 = urgent danger.
 - box_2d is [ymin, xmin, ymax, xmax], with each value an integer from 0 to 1000, scaled to the image height and width.
 - region is where the defect is in a 3x3 grid: one of top-left, top, top-right, left, center, right, bottom-left, bottom, bottom-right.

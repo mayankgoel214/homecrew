@@ -55,13 +55,14 @@ def parse_json(text: str):
     return json.loads(match.group(1))
 
 
-def _call_gemini(model: str, prompt: str, images: list[Image]) -> str:
+def _call_gemini(model: str, prompt: str, images: list[Image], think: bool) -> str:
     parts = [types.Part.from_bytes(data=i.data, mime_type=i.mime_type) for i in images]
-    resp = _get_client().models.generate_content(
-        model=model,
-        contents=[*parts, prompt],
-        config=types.GenerateContentConfig(temperature=0.2),
-    )
+    config = types.GenerateContentConfig(temperature=0.2)
+    if not think:
+        # Gemma 4 thinks by default (300-1,400 hidden tokens, 12-50 s per photo).
+        # "minimal" brings a vision call down to ~4 s with the same boxes in our tests.
+        config.thinking_config = types.ThinkingConfig(thinking_level="minimal")
+    resp = _get_client().models.generate_content(model=model, contents=[*parts, prompt], config=config)
     return resp.text or ""
 
 
@@ -87,27 +88,29 @@ def _call_ollama(prompt: str, images: list[Image]) -> str:
     return resp.json()["message"]["content"]
 
 
-def _generate(prompt: str, images: list[Image]) -> tuple[str, str]:
+def _generate(prompt: str, images: list[Image], think: bool) -> tuple[str, str]:
     """Returns (reply_text, model_used)."""
     if settings.ollama:
         return _call_ollama(prompt, images), settings.ollama_model
     try:
-        return _call_gemini(settings.gemma_model, prompt, images), settings.gemma_model
+        return _call_gemini(settings.gemma_model, prompt, images, think), settings.gemma_model
     except errors.APIError as e:
         if e.code in (429, 500, 503) and settings.gemma_model != FALLBACK_MODEL:
-            return _call_gemini(FALLBACK_MODEL, prompt, images), FALLBACK_MODEL
+            return _call_gemini(FALLBACK_MODEL, prompt, images, think), FALLBACK_MODEL
         raise GemmaError(f"Gemma API error {e.code}: {e.message}") from e
 
 
-def generate_json(prompt: str, images: list[Image] | None = None) -> tuple[object, str]:
+def generate_json(
+    prompt: str, images: list[Image] | None = None, think: bool = False
+) -> tuple[object, str]:
     """Returns (parsed_json, model_used). Retries once if the reply isn't valid JSON."""
     images = images or []
-    text, model = _generate(prompt, images)
+    text, model = _generate(prompt, images, think)
     try:
         return parse_json(text), model
     except (ValueError, json.JSONDecodeError):
         retry = prompt + "\n\nYour last reply was not valid JSON. Reply with ONLY the JSON, no prose."
-        text, model = _generate(retry, images)
+        text, model = _generate(retry, images, think)
         try:
             return parse_json(text), model
         except (ValueError, json.JSONDecodeError) as e:
