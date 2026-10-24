@@ -41,7 +41,7 @@
 | Step | Do this | Raw time | Kept in the edit |
 |---|---|---|---|
 | A1 | Start recording on the **front page**. Let the crew pop up and breathe. Tap **Rosa** once (her bubble appears). | 20 s | **15 s** |
-| A2 | Tap **Start a video call**. Rosa says: *"Hi, I'm Rosa. Show me what's wrong."* | 6 s | **4 s** |
+| A2 | Tap **Start a video call**. The crew introduces itself (8.6 s): Rosa *"Hi, I'm Rosa. I'll inspect your place."* Theo *"I'm Theo. I'll tell you what Virginia law says."* June *"And I'm June. I'll write your repair letter."* | 10 s | **9 s** |
 | A3 | **Mold:** walk to it, hold still 2 s. Brackets draw, then the box + tag. Rosa: *"Extensive mold growth on the wall. Don't touch it."* Theo (the **citation card** `VA. CODE § 55.1-1220` appears on screen): *"Virginia Code 55.1-1220: the landlord must fix visible mold."* June: *"I'll add it to your repair notice. They get 21 days."* **Walk to the wiring as soon as the tag appears.** | 15 s | **12 s** |
 | A4 | **Wiring:** hold still; tag `#02 · EXPOSED WIRING · CALL A PRO`. Rosa: *"Exposed wiring in a damaged enclosure. Don't touch it."* Theo: *"Same section: the landlord keeps the electrical safe."* June: *"Added to the notice."* **Walk to the lock as soon as the tag appears.** | 15 s | **12 s** |
 | A5 | **Lock:** tag `#03 · BROKEN LOCK · LANDLORD FIXES`. Rosa: *"The door is badly damaged and broken."* Theo: *"Same section: the landlord makes the repairs."* June: *"That's in the notice too."* | 15 s | **12 s** |
@@ -113,3 +113,16 @@ Read at a calm pace. Each block's target length is in brackets.
 - [ ] Verdict → row open → clock → Write my letter → Approve → downloads → Letter PDF
 - [ ] B: Describe "my sink won't drain" → Marco → sink → "You can fix this" → Safe DIY steps
 - [ ] End card
+
+
+## Pre-shot walkthrough video (if you send footage instead of filming live)
+Portrait, 1080p, 30 fps, about **45 s**, one continuous take. Run it with `http://localhost:3000/?feed=/walkthrough/<file>.mp4`.
+
+| Your video | Point at | Why |
+|---|---|---|
+| 0:00–0:08 | The room, no damage | The crew introduces itself (8.6 s) |
+| 0:08–0:15 | **Mold**, dead still 7 s | Captured, analyzed (~5 s), box draws where it is |
+| 0:15–0:18 | Slow pan | |
+| 0:18–0:25 | **Wiring**, still 7 s | |
+| 0:25–0:28 | Slow pan | |
+| 0:28–0:45 | **Lock**, still to the end | Last exchange finishes over it |

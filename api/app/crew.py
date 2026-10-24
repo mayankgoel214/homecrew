@@ -123,8 +123,11 @@ def greet(case_id: str, trade_id: str = "general", renter: bool = True, problem:
     if problem:
         opener = f"Hi, I'm {t.name}, your {t.role.lower()}. Show me the problem."
     else:
-        opener = f"Hi, I'm {t.name}. Show me what's wrong."
+        opener = f"Hi, I'm {t.name}. I'll inspect your place."
     db.store.post(case_id, "inspector", opener)
+    if renter and not problem:  # the whole crew says who they are, once, up front
+        db.store.post(case_id, "lawyer", "I'm Theo. I'll tell you what Virginia law says.")
+        db.store.post(case_id, "advocate", "And I'm June. I'll write your repair letter.")
 
 
 def call_ended(case_id: str, findings: int, renter: bool = True) -> None:
