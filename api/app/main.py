@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -11,6 +11,7 @@ from app.agents import advocate, lawyer
 from app.agents.inspector import inspect
 from app.config import settings
 from app.gemma import GemmaError
+from app.ratelimit import fingerprint, rate_limit, visitor_ip
 from app.statutes import va_code_lookup
 from app.store import Case, ledger_export, now, store
 
@@ -70,8 +71,9 @@ def _frame(case: Case, frame_id: str):
     raise HTTPException(404, "Frame not found")
 
 
-@app.post("/cases")
-def create_case() -> dict:
+@app.post("/cases", dependencies=[Depends(rate_limit("case"))])
+def create_case(request: Request) -> dict:
+    print(f"case_created visitor={fingerprint(visitor_ip(request))}")
     return store.create().model_dump()
 
 
@@ -80,7 +82,7 @@ def get_case(case_id: str) -> dict:
     return _case(case_id).model_dump()
 
 
-@app.post("/cases/{case_id}/frames")
+@app.post("/cases/{case_id}/frames", dependencies=[Depends(rate_limit("upload"))])
 async def add_frame(
     case_id: str,
     frame: UploadFile = File(...),
@@ -170,7 +172,7 @@ def verify_case(case_id: str) -> dict:
         raise HTTPException(404, "Case not found") from None
 
 
-@app.post("/cases/{case_id}/lawyer")
+@app.post("/cases/{case_id}/lawyer", dependencies=[Depends(rate_limit("lawyer"))])
 def case_lawyer(case_id: str) -> dict:
     issues, refs = _case(case_id).active_issues()
     if not issues:
@@ -204,7 +206,7 @@ def case_lawyer(case_id: str) -> dict:
     return _case(case_id).model_dump()
 
 
-@app.post("/cases/{case_id}/advocate")
+@app.post("/cases/{case_id}/advocate", dependencies=[Depends(rate_limit("advocate"))])
 def case_advocate(case_id: str, tenant: advocate.TenantInfo) -> dict:
     case = _case(case_id)
     if not case.legal:

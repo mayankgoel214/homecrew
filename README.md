@@ -92,6 +92,7 @@ The web app runs on Vercel and proxies `/api/*` to Cloud Run, so the phone talks
 - **No invented issues:** the Inspector is told to report only what's visible. Confidence is always shown. Anything below 0.85 is flagged for human review.
 - **Human in the loop:** nothing exports, sends or files without an explicit Approve click.
 - **Bounded scope:** the agents only handle apartment conditions and Virginia landlord-tenant law. Off-topic or adversarial inputs get refused.
+- **Abuse limits:** per-visitor limits on photo analysis (60 per 10 minutes), legal reviews and drafting (20 each) and new cases (30), plus a global cap of 600 Gemma calls an hour, so nobody can drain the free AI quota. Logs never store raw IPs, only a one-way fingerprint.
 - **Privacy:** no accounts. Name and address are optional. Photos are downscaled and stripped of GPS/EXIF on the device before upload. Cases auto-delete after 30 days.
 - **Accessibility:** keyboard navigable, WCAG AA contrast, screen-reader labels on every control, alt text on evidence images. _(TODO: audit results)_
 
