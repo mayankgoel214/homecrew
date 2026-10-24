@@ -8,7 +8,7 @@ from app import main
 from app import store as db
 from app.agents import advocate, lawyer
 from app.agents.inspector import InspectorResult, Issue
-from app.store import CaseStore
+from app.store import LocalCaseStore
 
 MOLD = Issue(type="mold", label="mold", severity=4, confidence=0.95, evidence_note="Mold on ceiling.")
 STAIN = Issue(type="water_damage", label="stain", severity=2, confidence=0.8, evidence_note="Stain on wall.")
@@ -18,7 +18,7 @@ IMG_A, IMG_B = b"\xff\xd8fake-jpeg-A", b"\xff\xd8fake-jpeg-B"
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    test_store = CaseStore(tmp_path)
+    test_store = LocalCaseStore(tmp_path)
     monkeypatch.setattr(main, "store", test_store)
     monkeypatch.setattr(db, "store", test_store)  # the crew posts chat through app.store
     replies = {IMG_A: [MOLD, STAIN], IMG_B: [LOCK]}

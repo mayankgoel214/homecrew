@@ -138,6 +138,7 @@ def update_frame(case_id: str, frame_id: str, body: FrameUpdate) -> dict:
 
     def change(case: Case):
         nonlocal reset
+        said.clear()  # a Firestore transaction may run this more than once
         f = _frame(case, frame_id)
         if body.removed is not None and body.removed != f.removed:
             f.removed = body.removed
@@ -187,6 +188,7 @@ def case_lawyer(case_id: str) -> dict:
 
     def change(case: Case):
         nonlocal stale
+        stale = False  # reset on transaction retries
         # Photos may have been added or findings dismissed while Gemma was working. Saving this
         # review would then pair the wrong findings with the wrong statutes, so drop it.
         if case.active_issues()[1] != refs:
@@ -272,7 +274,6 @@ def case_export(case_id: str, kind: str) -> Response:
 
 # ---- crew chat stream ------------------------------------------------------------------------
 
-STREAM_POLL_SECONDS = 0.4
 HEARTBEAT_SECONDS = 15
 # Each stream ends after this long and the browser reconnects (EventSource does it on its own,
 # resuming from Last-Event-ID). Without it, server reloads hang on open streams and hosting
@@ -297,12 +298,12 @@ async def stream(case_id: str, request: Request, after: int = -1) -> StreamingRe
             for m in fresh:
                 last = m.seq
                 yield f"id: {m.seq}\nevent: chat\ndata: {json.dumps(m.model_dump())}\n\n"
-            quiet = 0.0 if fresh else quiet + STREAM_POLL_SECONDS
+            quiet = 0.0 if fresh else quiet + store.poll_seconds
             if quiet >= HEARTBEAT_SECONDS:
                 quiet = 0.0
                 yield ": keep-alive\n\n"
-            await asyncio.sleep(STREAM_POLL_SECONDS)
-            waited += STREAM_POLL_SECONDS
+            await asyncio.sleep(store.poll_seconds)
+            waited += store.poll_seconds
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={
         "Cache-Control": "no-cache, no-transform",

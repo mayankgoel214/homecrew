@@ -1,7 +1,5 @@
-"""Case storage: one JSON file plus frame images per case, under uploads/cases/.
-
-Local disk for now so cases survive server reloads during the demo. The interface is small on
-purpose (create/get/save + frame bytes) so it can be swapped for Firestore + Cloud Storage.
+"""Case storage. STORE=local (default): JSON + images under uploads/cases/. STORE=firestore:
+Firestore documents + Cloud Storage objects (production on Cloud Run).
 
 The evidence ledger is append-only and hash-chained: each entry's hash covers the previous
 entry's hash, so editing, reordering or deleting any entry breaks every hash after it.
@@ -92,42 +90,39 @@ def entry_hash(case_id: str, seq: int, frame_id: str, sha256: str, received_at: 
 
 
 class CaseStore:
-    def __init__(self, root: Path = ROOT):
-        self.root = root
-        self._lock = threading.Lock()
+    """Shared logic. Backends implement _read, _create, update (atomic), put_image, frame_bytes."""
 
-    def _dir(self, case_id: str) -> Path:
+    poll_seconds = 0.4  # how often the chat stream checks for new messages
+
+    @staticmethod
+    def _check(case_id: str) -> None:
         if not _ID.match(case_id):  # also blocks path traversal
             raise KeyError(case_id)
-        return self.root / case_id
+
+    def get(self, case_id: str) -> Case:
+        self._check(case_id)
+        case = self._read(case_id)
+        if case is None:
+            raise KeyError(case_id)
+        return case
 
     def create(self) -> Case:
         case = Case(id=uuid4().hex, created_at=now())
-        (self._dir(case.id) / "frames").mkdir(parents=True)
-        self.save(case)
+        self._create(case)
         return case
-
-    def get(self, case_id: str) -> Case:
-        path = self._dir(case_id) / "case.json"
-        if not path.exists():
-            raise KeyError(case_id)
-        return Case.model_validate_json(path.read_text())
-
-    def save(self, case: Case) -> None:
-        path = self._dir(case.id) / "case.json"
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(case.model_dump_json(indent=1))
-        tmp.replace(path)  # atomic, so a crash never leaves half a file
 
     def add_frame(self, case_id: str, image: bytes, client_sha256: str, captured_at: str | None,
                   room_guess: str, issues: list[Issue], model: str) -> tuple[Case, Frame]:
-        with self._lock:
-            case = self.get(case_id)
-            frame_id = uuid4().hex
-            (self._dir(case_id) / "frames" / f"{frame_id}.jpg").write_bytes(image)
+        self._check(case_id)
+        frame_id = uuid4().hex
+        self.put_image(case_id, frame_id, image)  # stored first; the ledger entry points at it
+        sha = hashlib.sha256(image).hexdigest()
+        added: list[Frame] = []
+
+        def change(case: Case):
+            added.clear()  # the change can be retried by a transaction
             seq = len(case.ledger)
             prev = case.ledger[-1].entry_hash if case.ledger else GENESIS
-            sha = hashlib.sha256(image).hexdigest()
             received = now()
             case.ledger.append(LedgerEntry(
                 seq=seq, frame_id=frame_id, sha256=sha, client_sha256=client_sha256.lower(),
@@ -137,32 +132,19 @@ class CaseStore:
             frame = Frame(id=frame_id, seq=seq, room_guess=room_guess, issues=issues, model=model)
             case.frames.append(frame)
             case.invalidate()
-            self.save(case)
-            return case, frame
+            added.append(frame)
 
-    def update(self, case_id: str, change) -> Case:
-        """Load, apply change(case), save, under the lock."""
-        with self._lock:
-            case = self.get(case_id)
-            change(case)
-            self.save(case)
-            return case
+        case = self.update(case_id, change)
+        return case, added[0]
 
     def post(self, case_id: str, agent: str, text: str, kind: str = "message", refs: dict | None = None) -> None:
         """Append a crew chat message. The SSE stream picks it up from the saved case."""
-        with self._lock:
-            case = self.get(case_id)
+
+        def change(case: Case):
             case.chat.append(ChatMessage(seq=len(case.chat), agent=agent, kind=kind, text=text,
                                          refs=refs or {}, ts=now()))
-            self.save(case)
 
-    def frame_bytes(self, case_id: str, frame_id: str) -> bytes:
-        if not _ID.match(frame_id):
-            raise KeyError(frame_id)
-        path = self._dir(case_id) / "frames" / f"{frame_id}.jpg"
-        if not path.exists():
-            raise KeyError(frame_id)
-        return path.read_bytes()
+        self.update(case_id, change)
 
     def verify(self, case_id: str) -> dict:
         """Re-hash every stored image and re-walk the chain."""
@@ -191,6 +173,122 @@ class CaseStore:
         }
 
 
+class LocalCaseStore(CaseStore):
+    """One JSON file plus frame images per case on local disk. For development and tests."""
+
+    def __init__(self, root: Path = ROOT):
+        self.root = root
+        self._lock = threading.Lock()
+
+    def _dir(self, case_id: str) -> Path:
+        self._check(case_id)
+        return self.root / case_id
+
+    def _read(self, case_id: str) -> Case | None:
+        path = self._dir(case_id) / "case.json"
+        return Case.model_validate_json(path.read_text()) if path.exists() else None
+
+    def _save(self, case: Case) -> None:
+        path = self._dir(case.id) / "case.json"
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(case.model_dump_json(indent=1))
+        tmp.replace(path)  # atomic, so a crash never leaves half a file
+
+    def _create(self, case: Case) -> None:
+        (self._dir(case.id) / "frames").mkdir(parents=True)
+        self._save(case)
+
+    def update(self, case_id: str, change) -> Case:
+        """Load, apply change(case), save, under the lock."""
+        with self._lock:
+            case = self.get(case_id)
+            change(case)
+            self._save(case)
+            return case
+
+    def put_image(self, case_id: str, frame_id: str, image: bytes) -> None:
+        (self._dir(case_id) / "frames" / f"{frame_id}.jpg").write_bytes(image)
+
+    def frame_bytes(self, case_id: str, frame_id: str) -> bytes:
+        if not _ID.match(frame_id):
+            raise KeyError(frame_id)
+        path = self._dir(case_id) / "frames" / f"{frame_id}.jpg"
+        if not path.exists():
+            raise KeyError(frame_id)
+        return path.read_bytes()
+
+
+class FirestoreCaseStore(CaseStore):
+    """Production: the case document in Firestore, photos in Cloud Storage.
+
+    Each case is one document holding the case as JSON (well under Firestore's 1 MB limit) and an
+    expire_at timestamp; a Firestore TTL policy and a bucket lifecycle rule delete both after
+    RETENTION_DAYS. Every change runs in a transaction, so concurrent Cloud Run instances can't
+    overwrite each other.
+    """
+
+    poll_seconds = 1.0  # each stream poll is a Firestore read; keep it cheap
+    RETENTION_DAYS = 30
+
+    def __init__(self, project: str, bucket: str):
+        from google.cloud import firestore, storage  # only needed in production
+
+        self._firestore = firestore
+        self.db = firestore.Client(project=project)
+        self.cases = self.db.collection("cases")
+        self.bucket = storage.Client(project=project).bucket(bucket)
+
+    def _doc(self, case: Case) -> dict:
+        from datetime import timedelta
+
+        created = datetime.fromisoformat(case.created_at)
+        return {
+            "data": case.model_dump_json(),
+            "created_at": created,
+            "expire_at": created + timedelta(days=self.RETENTION_DAYS),
+        }
+
+    def _read(self, case_id: str) -> Case | None:
+        snap = self.cases.document(case_id).get()
+        return Case.model_validate_json(snap.get("data")) if snap.exists else None
+
+    def _create(self, case: Case) -> None:
+        self.cases.document(case.id).create(self._doc(case))
+
+    def update(self, case_id: str, change) -> Case:
+        self._check(case_id)
+        ref = self.cases.document(case_id)
+
+        @self._firestore.transactional
+        def run(transaction):
+            snap = ref.get(transaction=transaction)
+            if not snap.exists:
+                raise KeyError(case_id)
+            case = Case.model_validate_json(snap.get("data"))
+            change(case)  # may run more than once if the transaction retries
+            transaction.set(ref, self._doc(case))
+            return case
+
+        return run(self.db.transaction())
+
+    def _blob(self, case_id: str, frame_id: str):
+        self._check(case_id)
+        if not _ID.match(frame_id):
+            raise KeyError(frame_id)
+        return self.bucket.blob(f"cases/{case_id}/{frame_id}.jpg")
+
+    def put_image(self, case_id: str, frame_id: str, image: bytes) -> None:
+        self._blob(case_id, frame_id).upload_from_string(image, content_type="image/jpeg")
+
+    def frame_bytes(self, case_id: str, frame_id: str) -> bytes:
+        from google.api_core.exceptions import NotFound
+
+        try:
+            return self._blob(case_id, frame_id).download_as_bytes()
+        except NotFound:
+            raise KeyError(frame_id) from None
+
+
 def ledger_export(case: Case, verification: dict) -> str:
     frames = {f.id: f for f in case.frames}
     rows = []
@@ -212,4 +310,13 @@ def ledger_export(case: Case, verification: dict) -> str:
     }, indent=2)
 
 
-store = CaseStore()
+
+def _make_store() -> CaseStore:
+    from app.config import settings
+
+    if settings.store == "firestore":
+        return FirestoreCaseStore(settings.gcp_project, settings.gcs_bucket)
+    return LocalCaseStore()
+
+
+store = _make_store()

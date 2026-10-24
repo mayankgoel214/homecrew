@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma4:e4b"
     ollama_url: str = "http://localhost:11434"
     cors_origins: str = "http://localhost:3000"
+    # "local" (disk, for dev) or "firestore" (Firestore + Cloud Storage, for Cloud Run)
+    store: str = "local"
+    gcp_project: str = ""
+    gcs_bucket: str = ""
 
 
 settings = Settings()
