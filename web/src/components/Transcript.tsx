@@ -5,14 +5,14 @@ import type { ChatMessage } from "@/lib/api";
 import { PERSONAS, isAgent, namedMentions } from "@/lib/crew";
 
 const OTHERS: Record<string, { name: string; color: string }> = {
-  you: { name: "You", color: "#e5e5e5" },
-  system: { name: "HomeCrew", color: "#a3a3a3" },
+  you: { name: "You", color: "#F2EDE4" },
+  system: { name: "HomeCrew", color: "#8A8275" },
 };
 
 function withMentions(text: string) {
   return namedMentions(text)
     .split(/(@\w+)/)
-    .map((part, i) => (part.startsWith("@") ? <strong key={i} className="font-semibold text-white">{part}</strong> : part));
+    .map((part, i) => (part.startsWith("@") ? <strong key={i} className="font-semibold text-ink">{part}</strong> : part));
 }
 
 /** Every crew message in order: the readable record behind the call (and for screen readers). */
@@ -25,7 +25,7 @@ export default function Transcript({ messages }: { messages: ChatMessage[] }) {
   }, [messages.length]);
 
   const shown = messages.filter((m) => m.kind !== "status");
-  if (!shown.length) return <p className="px-1 text-sm text-neutral-500">Nothing said yet.</p>;
+  if (!shown.length) return <p className="px-1 text-sm text-ink-3">Nothing said yet.</p>;
 
   return (
     <ol ref={scrollRef} className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
@@ -39,9 +39,9 @@ export default function Transcript({ messages }: { messages: ChatMessage[] }) {
               {who.name}
             </span>
             {m.kind === "tool" ? (
-              <code className="break-words font-mono text-[11px] text-sky-200">{m.text}</code>
+              <code className="break-words font-mono text-[11px] text-theo">{m.text}</code>
             ) : (
-              <span className={m.kind === "error" ? "text-red-300" : "text-neutral-200"}>{withMentions(m.text)}</span>
+              <span className={m.kind === "error" ? "text-critical" : "text-ink"}>{withMentions(m.text)}</span>
             )}
           </li>
         );

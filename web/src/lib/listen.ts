@@ -9,6 +9,8 @@ type Recognition = {
   abort(): void;
   onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
   onend: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
 };
 
@@ -18,7 +20,11 @@ export function speechSupported(): boolean {
 
 /** Listens until stopped. pause()/resume() let the app stop listening while the crew talks,
  *  so the crew's own voices don't get transcribed as your questions. */
-export function createListener(onText: (text: string) => void, onError: (msg: string) => void) {
+export function createListener(
+  onText: (text: string) => void,
+  onError: (msg: string) => void,
+  onVoice: (talking: boolean) => void = () => {},
+) {
   const Ctor = (window as unknown as Record<string, new () => Recognition>).SpeechRecognition ??
     (window as unknown as Record<string, new () => Recognition>).webkitSpeechRecognition;
   const rec = new Ctor();
@@ -34,8 +40,11 @@ export function createListener(onText: (text: string) => void, onError: (msg: st
       if (r.isFinal && r[0].transcript.trim()) onText(r[0].transcript.trim());
     }
   };
+  rec.onspeechstart = () => onVoice(true);
+  rec.onspeechend = () => onVoice(false);
   rec.onend = () => {
     running = false;
+    onVoice(false);
     if (wanted) setTimeout(() => wanted && !running && start(), 250); // browsers stop after silence
   };
   rec.onerror = (e) => {

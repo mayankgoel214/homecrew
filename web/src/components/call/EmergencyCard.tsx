@@ -19,15 +19,15 @@ export default function EmergencyCard({ kind, onDismiss }: { kind: EmergencyKind
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="emergency-title"
-      className="fixed inset-0 z-50 flex flex-col bg-[#d70015] px-6 text-white"
+      className="fixed inset-0 z-50 flex flex-col bg-[#B3261E] px-6 text-white"
       style={{ paddingTop: "max(28px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}
     >
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/80">Emergency</p>
-      <h2 id="emergency-title" className="mt-3 text-[34px] font-extrabold leading-[1.05]">{e.title}</h2>
+      <p className="font-mono text-xs text-white/85">EMERGENCY · STOP EVERYTHING ELSE</p>
+      <h2 id="emergency-title" className="mt-3 font-display text-[38px] font-medium leading-[1.02] tracking-[-0.02em]">{e.title}</h2>
       <ol className="mt-6 flex flex-col gap-3">
         {e.steps.map((step, i) => (
-          <li key={i} className="flex gap-3 text-lg font-medium leading-snug">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-sm font-extrabold text-[#d70015]">{i + 1}</span>
+          <li key={i} className="flex gap-3 text-[17px] leading-snug">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white font-mono text-sm font-medium text-[#B3261E]">{i + 1}</span>
             {step}
           </li>
         ))}
@@ -36,7 +36,7 @@ export default function EmergencyCard({ kind, onDismiss }: { kind: EmergencyKind
         <a
           ref={callRef}
           href="tel:911"
-          className="flex items-center justify-center gap-2 rounded-full bg-white py-4 text-xl font-extrabold text-[#d70015] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className="tap flex items-center justify-center gap-2 rounded-md bg-white py-4 text-xl font-semibold text-[#B3261E] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           Call 911
         </a>

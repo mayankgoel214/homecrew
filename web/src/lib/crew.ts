@@ -1,3 +1,5 @@
+import { attachAnalyser, resumeAudio, setSpeaking } from "@/lib/level";
+
 // The crew's characters and how they speak. Voice is pluggable: anything implementing CrewVoice
 // (browser speech today; a hosted text-to-speech service later) can read lines in character.
 
@@ -19,7 +21,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     name: "Rosa",
     role: "Inspector",
     tagline: "Spots repair problems in your photos",
-    accent: "#f5b301",
+    accent: "#E7B85C",
     voice: { pitch: 1.1, rate: 1.03, preferred: ["Samantha", "Google US English", "Karen", "Zira"] },
   },
   lawyer: {
@@ -27,7 +29,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     name: "Theo",
     role: "Lawyer",
     tagline: "Matches each problem to Virginia law",
-    accent: "#38bdf8",
+    accent: "#8FB4FF",
     voice: { pitch: 0.85, rate: 0.98, preferred: ["Daniel", "Google UK English Male", "Aaron", "Alex", "David"] },
   },
   advocate: {
@@ -35,7 +37,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     name: "June",
     role: "Advocate",
     tagline: "Writes your letter and complaint",
-    accent: "#34d399",
+    accent: "#7ED4A6",
     voice: { pitch: 1.0, rate: 1.05, preferred: ["Moira", "Tessa", "Google UK English Female", "Fiona", "Susan"] },
   },
 };
@@ -47,13 +49,13 @@ export const isAgent = (agent: string): agent is AgentId => agent in PERSONAS;
 export type TradeId = "general" | "plumber" | "electrician" | "hvac" | "pest" | "locks" | "mold";
 
 export const TRADES: { id: TradeId; name: string; role: string; accent: string; checks: string }[] = [
-  { id: "general", name: "Rosa", role: "Home inspector", accent: "#f5b301", checks: "Not sure? A full walk-through" },
-  { id: "plumber", name: "Marco", role: "Plumber", accent: "#3b82f6", checks: "Leaks, drips, toilets, water heater" },
-  { id: "electrician", name: "Dana", role: "Electrician", accent: "#facc15", checks: "Outlets, wiring, smoke alarms" },
-  { id: "hvac", name: "Sam", role: "Heating & AC", accent: "#f87171", checks: "No heat, thermostat, filters" },
-  { id: "pest", name: "Lena", role: "Pest specialist", accent: "#4ade80", checks: "Mice, roaches, bedbugs" },
-  { id: "locks", name: "Archie", role: "Locks & doors", accent: "#c084fc", checks: "Locks, door frames, windows" },
-  { id: "mold", name: "Rosa", role: "Mold & water", accent: "#2dd4bf", checks: "Mold, damp walls, stains" },
+  { id: "general", name: "Rosa", role: "Home inspector", accent: "#E7B85C", checks: "Not sure? A full walk-through" },
+  { id: "plumber", name: "Marco", role: "Plumber", accent: "#7FB0D9", checks: "Leaks, drips, toilets, water heater" },
+  { id: "electrician", name: "Dana", role: "Electrician", accent: "#E8C95A", checks: "Outlets, wiring, smoke alarms" },
+  { id: "hvac", name: "Sam", role: "Heating & AC", accent: "#E8917A", checks: "No heat, thermostat, filters" },
+  { id: "pest", name: "Lena", role: "Pest specialist", accent: "#9CC98A", checks: "Mice, roaches, bedbugs" },
+  { id: "locks", name: "Archie", role: "Locks & doors", accent: "#C4A3E0", checks: "Locks, door frames, windows" },
+  { id: "mold", name: "Rosa", role: "Mold & water", accent: "#7CCBC0", checks: "Mold, damp walls, stains" },
 ];
 
 /** Put the chosen expert in the inspector's seat. Everything that reads PERSONAS.inspector
@@ -194,6 +196,8 @@ function silentWav(): string {
 export function unlockAudio() {
   if (typeof window === "undefined") return;
   sharedAudio ??= new Audio();
+  attachAnalyser(sharedAudio); // so the speaking ring follows the real voice
+  resumeAudio();
   sharedAudio.src = silentWav();
   sharedAudio.play().catch(() => {});
   unlockBrowserVoice();
@@ -230,11 +234,13 @@ export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
       const url = await fetchLine(text, persona);
       if (!url) return fallback.speak(text, persona);
       const audio = (sharedAudio ??= new Audio());
+      setSpeaking(true);
       return new Promise<void>((resolve) => {
         const done = () => {
           clearTimeout(safety);
           audio.onended = audio.onerror = null;
           stopCurrent = null;
+          setSpeaking(false);
           resolve();
         };
         const safety = setTimeout(done, readingMs(text) * 2 + 6000);

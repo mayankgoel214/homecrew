@@ -46,11 +46,12 @@ export const EMERGENCY: Record<EmergencyKind, { title: string; steps: string[] }
   },
 };
 
-export const TIER: Record<Tier, { label: string; short: string; color: string; ink: string }> = {
-  emergency: { label: "Emergency", short: "Emergency", color: "#ff3b30", ink: "#ffffff" },
-  pro: { label: "Stop: call a licensed pro", short: "Call a pro", color: "#f59e0b", ink: "#000000" },
-  landlord: { label: "Landlord must fix", short: "Landlord fixes", color: "#38bdf8", ink: "#000000" },
-  diy: { label: "Safe to fix yourself", short: "Safe DIY", color: "#34d399", ink: "#000000" },
+// Never color alone: every tier also has a glyph and a word (WCAG 1.4.1).
+export const TIER: Record<Tier, { label: string; short: string; color: string; ink: string; glyph: string }> = {
+  emergency: { label: "Emergency", short: "Emergency", color: "#FF6B5B", ink: "#1A0806", glyph: "!" },
+  pro: { label: "Stop: call a licensed pro", short: "Call a pro", color: "#FFB454", ink: "#1A1206", glyph: "✋" },
+  landlord: { label: "Landlord must fix", short: "Landlord fixes", color: "#7FB7FF", ink: "#06101A", glyph: "§" },
+  diy: { label: "Safe to fix yourself", short: "Safe DIY", color: "#6FD39A", ink: "#061A0F", glyph: "✓" },
 };
 
 export const worstTier = (tiers: (Tier | undefined)[]): Tier | null => {

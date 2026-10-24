@@ -51,7 +51,7 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
           return (
             <li
               key={entry.frame_id}
-              className={`flex gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-2.5 ${f?.removed ? "opacity-45" : ""}`}
+              className={`flex gap-3 rounded-lg border border-hair bg-surface-2 p-2.5 ${f?.removed ? "opacity-45" : ""}`}
             >
               <div className="relative shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -60,13 +60,13 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
                   alt={`Evidence photo ${entry.seq + 1}${f?.issues.length ? `: ${f.issues.map((i) => i.label).join(", ")}` : ""}`}
                   className="h-[4.5rem] w-[4.5rem] rounded-lg object-cover"
                 />
-                <span className="absolute -left-1 -top-1 rounded-md bg-black/80 px-1.5 text-[10px] font-bold text-white">
+                <span className="absolute -left-1 -top-1 rounded-md bg-black/80 px-1.5 text-[10px] font-bold text-ink">
                   #{entry.seq + 1}
                 </span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-neutral-300">{time(entry.received_at)}</p>
+                  <p className="text-xs text-ink">{time(entry.received_at)}</p>
                   {f && (
                     <Button
                       variant="ghost"
@@ -78,11 +78,11 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
                     </Button>
                   )}
                 </div>
-                <p className="truncate font-mono text-[11px] text-neutral-400" title={entry.sha256}>
+                <p className="truncate font-mono text-[11px] text-ink-2" title={entry.sha256}>
                   sha256 {entry.sha256.slice(0, 16)}…
                 </p>
                 {v && (
-                  <p className={`mt-0.5 flex items-center gap-1 text-xs font-medium ${ok ? "text-emerald-300" : "text-red-300"}`}>
+                  <p className={`mt-0.5 flex items-center gap-1 text-xs font-medium ${ok ? "text-good" : "text-critical"}`}>
                     <Icon name={ok ? "check" : "x"} className="h-3.5 w-3.5" />
                     {ok ? "Untouched since capture" : "Changed after capture"}
                   </p>
@@ -104,7 +104,7 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
                         aria-pressed={!dismissed}
                         title={dismissed ? "Include this finding again" : "Mark as not a problem"}
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${
-                          dismissed ? "bg-neutral-800 text-neutral-400 line-through" : "text-black"
+                          dismissed ? "bg-surface-3 text-ink-2 line-through" : "text-black"
                         }`}
                         style={dismissed ? undefined : { background: ROSA }}
                       >
@@ -116,14 +116,14 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
                       </button>
                     );
                   })}
-                  {f && f.issues.length === 0 && <span className="text-xs text-neutral-400">No problems found</span>}
+                  {f && f.issues.length === 0 && <span className="text-xs text-ink-2">No problems found</span>}
                 </div>
               </div>
             </li>
           );
         })}
       </ol>
-      <p className="mt-2 text-[11px] text-neutral-400">Tap a finding to mark it as not a problem.</p>
+      <p className="mt-2 text-[11px] text-ink-2">Tap a finding to mark it as not a problem.</p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button variant="secondary" disabled={busy} onClick={() => act(() => verifyCase(kase.id), true)}>
@@ -132,7 +132,7 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
         <a
           href={exportUrl(kase.id, "evidence.json")}
           download
-          className="inline-flex items-center gap-1.5 rounded-xl px-2 py-2 text-sm text-neutral-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm text-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
         >
           <Icon name="download" /> Evidence record
         </a>
@@ -140,8 +140,8 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
       {verification && (
         <p
           role="status"
-          className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
-            verification.all_ok ? "bg-emerald-950/60 text-emerald-200" : "bg-red-950/60 text-red-200"
+          className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+            verification.all_ok ? "bg-good/15 text-good" : "bg-critical/15 text-critical"
           }`}
         >
           <Icon name={verification.all_ok ? "check" : "x"} />
@@ -150,7 +150,7 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
             : "Some records don't match. See the marked photos."}
         </p>
       )}
-      {error && <p role="alert" className="mt-2 text-sm text-red-300">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-critical">{error}</p>}
     </Panel>
   );
 }

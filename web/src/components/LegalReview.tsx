@@ -59,7 +59,7 @@ export default function LegalReview({
 
       {!kase.legal && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-neutral-300">
+          <p className="text-sm text-ink">
             {findingCount
               ? `${findingCount} finding${findingCount > 1 ? "s" : ""} in your case. Done photographing?`
               : "No findings yet. Photograph the problems first."}
@@ -87,12 +87,12 @@ export default function LegalReview({
               </article>
             );
           })}
-          <p className="text-[11px] leading-snug text-neutral-400">
+          <p className="text-[11px] leading-snug text-ink-2">
             Looked up {kase.legal.lookups.map((s) => `§ ${s}`).join(", ")}. {kase.legal.disclaimer}
           </p>
         </div>
       )}
-      {error && <p role="alert" className="mt-3 rounded-xl bg-red-950/60 p-3 text-sm text-red-200">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-critical/15 p-3 text-sm text-critical">{error}</p>}
     </Panel>
   );
 }

@@ -13,6 +13,8 @@ import LegalReview from "@/components/LegalReview";
 import AdvocatePanel from "@/components/AdvocatePanel";
 import Transcript from "@/components/Transcript";
 import SafetyPlan from "@/components/SafetyPlan";
+import CrewBadge from "@/components/CrewBadge";
+import { motion } from "motion/react";
 
 type View = "lobby" | "call" | "file";
 const CASE_KEY = "homecrew.caseId";
@@ -145,56 +147,78 @@ export default function HomeCrewApp() {
 
   if (view === "file" && kase) {
     const speaker = playback.current && isAgent(playback.current.agent) ? PERSONAS[playback.current.agent] : null;
+    const caseNo = kase.id.slice(0, 4).toUpperCase();
+    const opened = new Date(kase.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const sections = kase.frames.length === 0
+      ? [<p key="empty" className="rounded-lg border border-hair bg-surface-1 p-5 text-sm text-ink-2">No photos in this case yet. Call the crew and show them around.</p>]
+      : [
+          <CaseSummary key="summary" kase={kase} />,
+          <SafetyPlan key="plan" kase={kase} />,
+          ...(renter
+            ? [
+                <LegalReview key="legal" kase={kase} findingCount={findings} uploading={false} autoStart={justEnded} onChange={setKase} />,
+                ...(kase.legal && kase.legal.findings.length > 0
+                  ? [<AdvocatePanel key="advocate" kase={kase} onChange={setKase} />]
+                  : []),
+              ]
+            : []),
+          <EvidenceLedger key="ledger" kase={kase} onChange={setKase} />,
+        ];
     return (
-      <main className="min-h-[100dvh] bg-neutral-950 text-neutral-100">
+      <main className="grain min-h-[100dvh] bg-canvas text-ink">
         <header
-          className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/90 px-4 py-3 backdrop-blur"
-          style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
+          className="sticky top-0 z-10 flex items-center justify-between border-b border-hair bg-canvas/95 px-4 py-2.5"
+          style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}
         >
-          <button onClick={() => start({ source, trade, renter })} className="flex items-center gap-1.5 rounded-full bg-[#34c759] px-3 py-1.5 text-xs font-bold text-black">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+          <button onClick={() => start({ source, trade, renter })} className="tap flex items-center gap-1.5 rounded-md border border-hair-strong bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
               <path d="M15 8.5V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1.5l5 3.5V5z" fill="currentColor" />
             </svg>
             Call again
           </button>
-          <h1 className="text-sm font-bold">Your case file</h1>
-          <button onClick={newCase} className="text-xs text-neutral-400 underline-offset-4 hover:underline">New case</button>
+          <span className="font-mono text-[11px] text-ink-3">HOMECREW</span>
+          <button onClick={newCase} className="tap text-xs text-ink-2 underline-offset-4 hover:text-ink hover:underline">New case</button>
         </header>
 
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-5 pb-28">
-          {kase.frames.length === 0 ? (
-            <p className="rounded-2xl border border-neutral-800 p-5 text-sm text-neutral-300">
-              No photos in this case yet. Call the crew and show them around.
-            </p>
-          ) : (
-            <>
-              <CaseSummary kase={kase} />
-              <SafetyPlan kase={kase} />
-              {renter && (
-                <>
-                  <LegalReview kase={kase} findingCount={findings} uploading={false} autoStart={justEnded} onChange={setKase} />
-                  {kase.legal && kase.legal.findings.length > 0 && (
-                    <AdvocatePanel key={kase.legal.findings.length + kase.ledger.length} kase={kase} onChange={setKase} />
-                  )}
-                </>
-              )}
-              <EvidenceLedger kase={kase} onChange={setKase} />
-            </>
-          )}
-          <details className="rounded-2xl border border-neutral-800 p-4 text-sm">
-            <summary className="cursor-pointer font-semibold">What the crew said</summary>
-            <div className="mt-3">
-              <Transcript messages={messages} />
-            </div>
-          </details>
+        <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-8">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.2, 0, 0, 1] } }}
+            className="relative"
+          >
+            <p className="font-mono text-[11px] text-ink-3">OPENED {opened.toUpperCase()} · {renter ? "RENTAL" : "OWNER"} · VIRGINIA</p>
+            <h1 className="mt-2 font-display text-[44px] font-normal leading-none tracking-[-0.025em]" style={{ fontVariationSettings: '"SOFT" 100, "opsz" 144' }}>
+              Case file
+            </h1>
+            <span className="stamp absolute right-0 top-4 rounded-sm border-2 border-brass px-2 py-1 font-mono text-[13px] font-medium text-brass">
+              No. {caseNo}
+            </span>
+            <div className="mt-5 h-px w-full bg-gradient-to-r from-brass/80 via-brass/20 to-transparent" />
+          </motion.div>
+
+          <div className="mt-6 flex flex-col gap-4">
+            {sections.map((node, i) => (
+              <motion.div
+                key={(node as React.ReactElement).key ?? i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0, transition: { delay: 0.12 + i * 0.06, duration: 0.28, ease: [0.2, 0, 0, 1] } }}
+              >
+                {node}
+              </motion.div>
+            ))}
+            <details className="rounded-lg border border-hair bg-surface-1 p-4 text-sm">
+              <summary className="cursor-pointer font-medium text-ink-2">What the crew said</summary>
+              <div className="mt-3">
+                <Transcript messages={messages} />
+              </div>
+            </details>
+          </div>
         </div>
 
         {playback.current && playback.speaking && (
-          <div aria-live="polite" className="fixed inset-x-3 bottom-3 z-20 mx-auto max-w-xl rounded-2xl bg-black/85 px-4 py-3 shadow-2xl ring-1 ring-white/10 backdrop-blur" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
-            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: speaker?.accent ?? "#d4d4d4" }}>
-              {speaker?.name ?? "HomeCrew"}
-            </p>
-            <p className="mt-0.5 line-clamp-3 text-sm leading-snug">{namedMentions(playback.current.text)}</p>
+          <div aria-live="polite" className="fixed inset-x-3 bottom-3 z-20 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-hair-strong bg-surface-2 px-3 py-2.5" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
+            {speaker && <CrewBadge agent={speaker.id} size={36} state="speaking" />}
+            <p className="line-clamp-2 text-[14px] leading-snug text-ink">{namedMentions(playback.current.text)}</p>
           </div>
         )}
       </main>
