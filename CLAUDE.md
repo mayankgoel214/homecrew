@@ -8,7 +8,7 @@ Phone-first website. The user points the live camera at apartment defects. Three
 ## Repo layout
 - `web/`: Next.js 15 App Router, TypeScript, Tailwind. Runs in the phone's browser. Deployed to Vercel (HTTPS is required for the camera).
 - `api/`: FastAPI (Python 3.12, uv). Agents, orchestrator, exports. Deployed to Cloud Run. Run: `cd api && uv run uvicorn app.main:app --reload --port 8000`. Test: `uv run pytest -q`.
-- `api/data/statutes.json`: pre-cached Virginia Code sections. The demo must never depend on the live statute API.
+- `api/data/statutes.json`: pre-cached Virginia Code sections (refresh: `cd api && uv run python scripts/cache_statutes.py`). The demo must never depend on the live statute API. Lawyer grounding is enforced in code (`api/app/agents/lawyer.py`): citations must be looked-up sections, quotes must be verbatim or get replaced by the closest real sentence, and deadlines and disclaimers come from code, not the model.
 - `samples/`: test photos (no people, faces or addresses).
 
 ## Hard rules

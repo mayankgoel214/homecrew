@@ -3,9 +3,13 @@ import hashlib
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.agents.inspector import inspect
+from pydantic import BaseModel
+
+from app.agents import lawyer
+from app.agents.inspector import Issue, inspect
 from app.config import settings
 from app.gemma import GemmaError
+from app.statutes import va_code_lookup
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -52,3 +56,25 @@ async def inspect_frame(
         "sha256": server_sha256,
         "hash_match": client_sha256.lower() == server_sha256 if client_sha256 else None,
     }
+
+
+class LawyerRequest(BaseModel):
+    issues: list[Issue]
+
+
+@app.post("/lawyer")
+def lawyer_review(body: LawyerRequest) -> dict:
+    if len(body.issues) > 20:
+        raise HTTPException(413, "Too many issues in one request (max 20)")
+    try:
+        return lawyer.analyze(body.issues).model_dump()
+    except GemmaError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@app.get("/statutes/{section}")
+def statute(section: str) -> dict:
+    found = va_code_lookup(section)
+    if not found:
+        raise HTTPException(404, "We only cite the Virginia Code sections we have cached")
+    return found

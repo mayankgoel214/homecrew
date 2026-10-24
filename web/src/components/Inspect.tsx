@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { frameFromFile, frameFromVideo, type Frame } from "@/lib/frame";
-import { inspectFrame, type InspectResult, type Issue } from "@/lib/api";
+import { inspectFrame, lawyerReview, type InspectResult, type Issue, type LawyerResult } from "@/lib/api";
+import StatuteCard from "@/components/StatuteCard";
 
 type CameraState = "off" | "starting" | "live" | "unavailable";
-type Shot = { frame: Frame; result?: InspectResult; error?: string };
+type Shot = {
+  frame: Frame;
+  result?: InspectResult;
+  error?: string;
+  legal?: LawyerResult;
+  legalError?: string;
+  legalBusy?: boolean;
+};
 
 const SEVERITY_COLOR = ["", "#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
 const REGION_CELL: Record<string, [number, number]> = {
@@ -67,12 +75,26 @@ export default function Inspect() {
   async function analyze(frame: Frame) {
     setShot({ frame });
     setBusy(true);
+    let result: InspectResult;
     try {
-      setShot({ frame, result: await inspectFrame(frame.blob, frame.sha256) });
+      result = await inspectFrame(frame.blob, frame.sha256);
     } catch (e) {
       setShot({ frame, error: e instanceof Error ? e.message : "Something went wrong" });
-    } finally {
       setBusy(false);
+      return;
+    }
+    setBusy(false);
+    if (!result.issues.length) {
+      setShot({ frame, result });
+      return;
+    }
+    // Only apply the Lawyer's answer if the user is still looking at this frame.
+    const update = (patch: Partial<Shot>) => setShot((s) => (s?.frame === frame ? { ...s, ...patch } : s));
+    setShot({ frame, result, legalBusy: true });
+    try {
+      update({ legal: await lawyerReview(result.issues), legalBusy: false });
+    } catch (e) {
+      update({ legalError: e instanceof Error ? e.message : "Lawyer failed", legalBusy: false });
     }
   }
 
@@ -193,8 +215,22 @@ export default function Inspect() {
               <p className="mt-1 text-sm text-neutral-300">{issue.evidence_note}</p>
               {issue.needs_human_check && <p className="mt-1 text-xs text-amber-300">Needs a human check: low confidence</p>}
               {!issue.bbox && <p className="mt-1 text-xs text-neutral-500">Approximate area (no exact box)</p>}
+              {shot.legal?.findings
+                .filter((f) => f.issue_index === i)
+                .map((f) => <StatuteCard key={f.statute_section} finding={f} />)}
             </article>
           ))}
+          {shot.legalBusy && (
+            <p role="status" className="text-sm text-sky-300">Lawyer is checking Virginia law…</p>
+          )}
+          {shot.legalError && (
+            <p role="alert" className="rounded-md bg-red-950 p-3 text-sm text-red-200">{shot.legalError}</p>
+          )}
+          {shot.legal && (
+            <p className="text-xs text-neutral-400">
+              Looked up {shot.legal.lookups.map((s) => `§ ${s}`).join(", ")}. {shot.legal.disclaimer}
+            </p>
+          )}
           <p className="break-all text-xs text-neutral-500">
             {shot.result.model} · SHA-256 {shot.result.sha256.slice(0, 16)}… ·{" "}
             {shot.result.hash_match ? "hash verified on server" : "hash mismatch"}
