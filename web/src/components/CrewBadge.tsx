@@ -59,7 +59,7 @@ export default function CrewBadge({
           className="absolute inset-[3px] overflow-hidden rounded-full"
           style={{ background: `radial-gradient(circle at 50% 28%, ${p.accent}55, #15130f 72%)` }}
         >
-          <div className="h-full w-full translate-y-[6%] scale-[1.28]">
+          <div className="h-full w-full translate-y-[10%] scale-[1.42]">
             <Character agent={agent} speaking={speaking} trade={trade} />
           </div>
         </div>
