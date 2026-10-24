@@ -32,10 +32,9 @@ def _short(text: str, limit: int = 90) -> str:
     return cut[: max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? ")) + 1] or cut.rsplit(" ", 1)[0] + "…"
 
 
-TIER_TAIL = {
-    "pro": "Don't touch it. Call a pro.",
-    "landlord": "Landlord's job.",
-    "diy": "You can fix this.",
+TIER_TAIL = {  # Rosa only adds a tail when it changes what you should do; Theo covers whose job it is
+    "pro": "Don't touch it.",
+    "diy": "You can fix this one.",
 }
 
 
@@ -60,7 +59,8 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
         first = " ".join(words[:8]).rstrip(",;:") + "."
     line = first or f"{issues[0].label[:1].upper()}{issues[0].label[1:]}."
     if tier:
-        line = f"{line} {TIER_TAIL[tier]}"
+        if tier in TIER_TAIL:
+            line = f"{line} {TIER_TAIL[tier]}"
         refs["tier"] = tier
     if tier in ("landlord", "pro"):
         line += " @Lawyer"
@@ -77,50 +77,43 @@ def checklist_prompt(case_id: str, trade_id: str, step: int) -> None:
         db.store.post(case_id, "inspector", f"Next, show me {items[step]}.")
 
 
-# Theo's instant take during the call. Each line restates a specific subsection of the cached
-# statute text (no model call), so it's immediate and can't misquote the law. The full,
-# Gemma-written legal review runs when the call ends.
-QUICK_TAKE = {
-    "mold": ("55.1-1220", "your landlord has to keep moisture and mold out, and when mold is visible they have to promptly remediate it."),
-    "water_damage": ("55.1-1220", "your landlord has to keep the place from collecting moisture, which is what leads to mold."),
-    "exposed_wiring": ("55.1-1220", "your landlord has to keep the electrical in good and safe working order."),
-    "no_heat_indicator": ("55.1-1220", "your landlord has to supply heat in season and hot water."),
-    "missing_smoke_detector": ("55.1-1220", "smoke alarms have to be there and working, and your landlord has to certify that every year."),
-    "pest": ("55.1-1244.1", "for rodents, once you tell your landlord in writing they have 14 days to take reasonable steps."),
-}
-DEFAULT_TAKE = ("55.1-1220", "your landlord has to make the repairs needed to keep the place fit and habitable.")
 
 # What Theo actually says on the call: one beat, about 6 words. The full explanation is in the
 # case file; on the call he just confirms whose problem it is and the section.
-# The hand-off on every finding: Rosa spots it, Theo answers her, June answers him. Short lines
-# that name each other, so it sounds like a crew talking, not three separate announcements.
-# The section numbers and full explanations live in the case file.
-THEO_LINES = [
-    "Good catch, Rosa. That's on your landlord.",
-    "Landlord has to fix that one too.",
-    "Same rule, Rosa. Landlord's job.",
-]
-JUNE_LINES = [
-    "Got it, Theo. It's going in the letter.",
-    "Adding that to the letter.",
-    "That's in the letter too.",
-]
+# The hand-off on every finding: Rosa says what she sees, Theo names the Virginia rule, June
+# says what she's doing about it. Theo's rules restate specific subsections of the cached statute
+# text (§ 55.1-1220 A.2/A.4/A.5/A.7/A.8, § 55.1-1244.1 B); the call screen shows the citation as a
+# card while he speaks, so the spoken line can stay short.
+RULES: dict[str, tuple[str, str, str]] = {  # type -> (section, spoken rule, on-screen rule)
+    "mold": ("55.1-1220", "the landlord must fix visible mold.", "Prevent moisture; promptly remediate visible mold (A)(5)"),
+    "water_damage": ("55.1-1220", "the landlord must keep moisture out.", "Prevent moisture and mold (A)(5)"),
+    "exposed_wiring": ("55.1-1220", "the landlord keeps the electrical safe.", "Keep electrical in good and safe working order (A)(4)"),
+    "no_heat_indicator": ("55.1-1220", "the landlord must supply heat.", "Supply heat in season and hot water (A)(7)"),
+    "missing_smoke_detector": ("55.1-1220", "smoke alarms have to work.", "Smoke alarms present and working, certified yearly (A)(8)"),
+    "pest": ("55.1-1244.1", "fourteen days to act after written notice.", "Rodents: landlord must act within 14 days of written notice (B)"),
+}
+DEFAULT_RULE = ("55.1-1220", "the landlord makes the repairs.", "Make all repairs to keep the unit fit and habitable (A)(2)")
+TITLES = {"55.1-1220": "Landlord to maintain fit premises", "55.1-1244.1": "Tenant's remedy by repair"}
+JUNE_LINES = ["I'll add it to your repair notice. They get 21 days.", "Added to the notice.", "That's in the notice too."]
 
 
 def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
-    """Renters only. Theo answers Rosa, then June answers Theo, once per kind of problem in THIS
-    call (a new take or 'Call again' starts the conversation over)."""
+    """Renters only. Theo names the rule, June says what she'll do, once per kind of problem in
+    THIS call (a new take or 'Call again' starts the conversation over)."""
     case = db.store.get(case_id)
     this_call = [m for m in case.chat if m.seq >= case.call_seq]
     already = {m.refs.get("issue_type") for m in this_call if m.agent == "lawyer"}
+    sections_said = {m.refs.get("section") for m in this_call if m.agent == "lawyer"}
     n = sum(1 for m in this_call if m.agent == "lawyer")
     for issue in issues:
         if issue.type in already or not issue.safety or issue.safety["tier"] not in ("landlord", "pro"):
             continue
         already.add(issue.type)
-        section, _ = QUICK_TAKE.get(issue.type, DEFAULT_TAKE)
-        db.store.post(case_id, "lawyer", THEO_LINES[min(n, len(THEO_LINES) - 1)],
-                      refs={"section": section, "issue_type": issue.type})
+        section, spoken, card = RULES.get(issue.type, DEFAULT_RULE)
+        lead = "Same section:" if section in sections_said else f"Virginia Code {section}:"
+        sections_said.add(section)
+        db.store.post(case_id, "lawyer", f"{lead} {spoken}",
+                      refs={"section": section, "issue_type": issue.type, "rule": card, "title": TITLES.get(section, "")})
         db.store.post(case_id, "advocate", JUNE_LINES[min(n, len(JUNE_LINES) - 1)])
         n += 1
 

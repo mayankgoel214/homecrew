@@ -42,14 +42,14 @@
 |---|---|---|---|
 | A1 | Start recording on the **front page**. Let the crew pop up and breathe. Tap **Rosa** once (her bubble appears). | 20 s | **15 s** |
 | A2 | Tap **Start a video call**. Rosa says: *"Hi, I'm Rosa. Show me what's wrong."* | 6 s | **4 s** |
-| A3 | **Mold:** walk to it, hold the phone still 2 s. The gold brackets draw, then the box + tag `#01 · MOLD GROWTH · …`. Rosa: *"Significant mold growth on the wall. Don't touch it. Call a pro."* Theo: *"Good catch, Rosa. That's on your landlord."* June: *"Got it, Theo. It's going in the letter."* | 15 s | **12 s** |
-| A4 | **Wiring:** same. Tag `#02 · EXPOSED WIRING · CALL A PRO`. Rosa: *"Exposed wiring by the outlet. Don't touch it. Call a pro."* Theo: *"Landlord has to fix that one too."* June: *"Adding that to the letter."* | 15 s | **12 s** |
-| A5 | **Lock:** same. Tag `#03 · BROKEN LOCK · LANDLORD FIXES`. Rosa: *"The door lock is broken and damaged. Landlord's job."* Theo: *"Same rule, Rosa. Landlord's job."* June: *"That's in the letter too."* | 15 s | **12 s** |
+| A3 | **Mold:** walk to it, hold still 2 s. Brackets draw, then the box + tag. Rosa: *"Extensive mold growth on the wall. Don't touch it."* Theo (the **citation card** `VA. CODE § 55.1-1220` appears on screen): *"Virginia Code 55.1-1220: the landlord must fix visible mold."* June: *"I'll add it to your repair notice. They get 21 days."* **Walk to the wiring as soon as the tag appears.** | 15 s | **12 s** |
+| A4 | **Wiring:** hold still; tag `#02 · EXPOSED WIRING · CALL A PRO`. Rosa: *"Exposed wiring in a damaged enclosure. Don't touch it."* Theo: *"Same section: the landlord keeps the electrical safe."* June: *"Added to the notice."* **Walk to the lock as soon as the tag appears.** | 15 s | **12 s** |
+| A5 | **Lock:** tag `#03 · BROKEN LOCK · LANDLORD FIXES`. Rosa: *"The door is badly damaged and broken."* Theo: *"Same section: the landlord makes the repairs."* June: *"That's in the notice too."* | 15 s | **12 s** |
 | A6 | Tap the red **End Call**. The case file stamps in; everything goes silent. | 3 s | **3 s** |
 | A7 | **Report, slowly** (about 3 s per action): hold on the verdict → tap the mold row open → close it → scroll to the clock → tap **Write my letter** (June takes ~6 s; cut that) → tap **Approve** → hold on the 3 download tiles → tap **Letter** so the PDF shows | 45 s | **27 s** |
 | | **Total** | **~2:00** | **1:25** |
 
-> **The 40-second call (A2–A5):** measured on the live server, each problem is about 5 s of analysis + 7 to 10 s of Rosa → Theo → June. **Move to the next problem as soon as the box and tag appear; don't wait for the crew to finish.** The next capture is analyzed while they're still talking, so the whole call lands around 35 s (47 s if you wait for everyone each time). If a problem runs long, trim the walking between spots, never the crew's lines. If Rosa misses one, re-shoot just that spot and splice it in.
+> **The 40-second call (A2–A5):** measured on the live server: each problem is ~5 s of analysis and a 6–10 s Rosa → Theo → June exchange. Because the next problem is analyzed while they're still talking, the whole call ends at **~36 s** if you walk on as soon as each tag appears (48 s if you wait for June every time). Two problems instead of three: ~28 s.
 
 ---
 

@@ -365,6 +365,21 @@ export default function CallScreen({
         <div className="flex items-end gap-2">
           {crew.map((id) => <CrewBadge key={id} agent={id} size={50} state={stateOf(id)} label />)}
         </div>
+        {/* Theo's citation, on screen while he says the short version */}
+        <AnimatePresence>
+          {current?.agent === "lawyer" && current.refs.section && (
+            <motion.div
+              key={`law-${current.seq}`}
+              className="rounded-md border border-theo/40 bg-[#0C0B09]/90 px-3 py-2"
+              initial={reduce ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.22, ease: SETTLE } }}
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            >
+              <p className="font-mono text-[11px] font-medium text-theo">VA. CODE § {current.refs.section}{current.refs.title ? ` · ${current.refs.title.toUpperCase()}` : ""}</p>
+              {current.refs.rule && <p className="mt-0.5 text-[13px] leading-snug text-ink">{current.refs.rule}</p>}
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div aria-live="polite" className="min-h-[52px]">
           <AnimatePresence mode="wait" initial={false}>
             {problem ? (
