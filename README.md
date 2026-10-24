@@ -5,6 +5,8 @@
 Built at **GDG Build with AI x Hacktoberfest 2026**, Virginia Tech (Oct 24-25, 2026).
 Tracks: GDG Best Overall AI for Housing · MLH **Best Use of Gemma 4**.
 
+**Live demo:** https://homecrew-vt.vercel.app (open it on your phone; the camera needs HTTPS, which this has)
+
 > Status: in progress during the hackathon. Sections marked _TODO_ get filled in before submission.
 
 ---
@@ -42,16 +44,47 @@ Prompts live in [`api/app/prompts/`](api/app/prompts/) _(TODO)_.
 
 ## Architecture
 
-_TODO: diagram image_
+```mermaid
+flowchart LR
+  subgraph Phone["Phone browser (Next.js on Vercel)"]
+    CAM["Live camera<br/>1024px JPEG, GPS stripped<br/>SHA-256 on device"]
+    CALL["Crew call UI<br/>Rosa · Theo · June"]
+  end
+  subgraph Run["FastAPI on Google Cloud Run (us-east4)"]
+    INS["Inspector<br/>Gemma 4 vision"]
+    LAW["Lawyer<br/>Gemma 4 + va_code_lookup"]
+    ADV["Advocate<br/>Gemma 4 + letter / complaint / .ics"]
+    SSE["Crew chat stream (SSE)"]
+  end
+  GEM["Gemini API<br/>gemma-4-31b-it"]
+  VA["statutes.json<br/>cached from law.lis.virginia.gov"]
+  FS[("Firestore<br/>cases, hash-chained ledger, chat<br/>30-day TTL")]
+  GCS[("Cloud Storage<br/>photos, private, 30-day lifecycle")]
+  SM["Secret Manager<br/>Gemini key"]
 
+  CAM -- "HTTPS via Vercel rewrite" --> INS
+  INS --> LAW --> ADV
+  INS & LAW & ADV -.-> GEM
+  LAW --> VA
+  INS & LAW & ADV --> FS
+  INS --> GCS
+  SSE --> CALL
+  FS --> SSE
+  SM -.-> Run
 ```
-Phone browser (Next.js, HTTPS) ── live camera → 1024px JPEG, EXIF/GPS stripped, SHA-256 hashed
-        │  HTTPS + Server-Sent Events
-        ▼
-FastAPI on Google Cloud Run ── orchestrator: Inspector → Lawyer → Advocate (Gemma 4)
-        │
-Firestore (cases, chat, ledger) + Cloud Storage (frames)     Virginia Code: cached from law.lis.virginia.gov
-```
+
+**How Google Cloud is used**
+
+| Service | What it does in HomeCrew | Why |
+|---|---|---|
+| Cloud Run | Runs the FastAPI backend and all three agents | Scales to zero when idle (free), scales out for a demo; `max-instances=3` caps cost |
+| Firestore | One document per case: findings, the hash-chained evidence ledger, the crew chat | Every change runs in a transaction, so concurrent instances can't overwrite each other. A TTL policy deletes cases after 30 days |
+| Cloud Storage | The evidence photos | Private bucket (public access prevention on), lifecycle rule deletes photos after 30 days |
+| Secret Manager | The Gemini API key | The key never sits in code or plain env vars; only the service account can read it |
+| IAM | Dedicated `homecrew-api` service account | Least privilege: Firestore user + object admin on one bucket, nothing else |
+| Cloud Build | Builds the container from `api/Dockerfile` on deploy | No local Docker needed |
+
+The web app runs on Vercel and proxies `/api/*` to Cloud Run, so the phone talks to one HTTPS origin (needed for the camera) and there's no CORS.
 
 ## Responsible AI
 
@@ -74,6 +107,10 @@ cd ../web && pnpm install && pnpm dev   # http://localhost:3000
 ```
 
 **Testing the camera on a phone:** browsers only allow the camera over HTTPS. Run `cloudflared tunnel --url http://localhost:3000` and open the printed `https://…trycloudflare.com` URL on your phone.
+
+## Deploy
+
+See [docs/deploy.md](docs/deploy.md) for the exact commands (Cloud Run + Firestore + Cloud Storage + Secret Manager, then Vercel).
 
 ## API dependencies
 

@@ -17,6 +17,9 @@ Phone-first website. The user points the live camera at apartment defects. Three
 - Async endpoints must not call Gemma or the store directly (it freezes the event loop and the chat stream); use `asyncio.to_thread`.
 - `samples/`: test photos (no people, faces or addresses).
 
+## Live deployment
+- Web: https://homecrew-vt.vercel.app (Vercel project `homecrew`). API: Cloud Run `homecrew-api`, project `homecrew-vt`, us-east4, `STORE=firestore`. Commands in [docs/deploy.md](docs/deploy.md). After `vercel deploy --prod`, re-run `vercel alias set` for the short link.
+
 ## Hard rules
 1. **No feature past core (PLAN.md section 4, items 1-7) until the Saturday 9 PM dry run passes.**
 2. **One feature per session, commit after each.** Commits must all be from the event weekend.
