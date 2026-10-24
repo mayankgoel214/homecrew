@@ -125,17 +125,22 @@ const json = (method: string, body: unknown): RequestInit => ({
 export const createCase = () => call<Case>("/api/cases", { method: "POST" }, "Starting a case");
 export const getCase = (id: string) => call<Case>(`/api/cases/${id}`, undefined, "Loading the case");
 
-export function addFrame(caseId: string, blob: Blob, sha256: string): Promise<{ frame: Frame; ledger_entry: LedgerEntry }> {
+export type FrameResult = { kept: boolean; frame?: Frame; issues: Issue[]; say: string };
+
+export function addFrame(caseId: string, blob: Blob, sha256: string, live = false): Promise<FrameResult> {
   const form = new FormData();
   form.append("frame", blob, "frame.jpg");
   form.append("client_sha256", sha256);
   form.append("captured_at", new Date().toISOString());
+  if (live) form.append("live", "true");
   return call(`/api/cases/${caseId}/frames`, { method: "POST", body: form }, "Inspector");
 }
 
 export const updateFrame = (caseId: string, frameId: string, patch: { removed?: boolean; dismissed?: number[] }) =>
   call<Case>(`/api/cases/${caseId}/frames/${frameId}`, json("PATCH", patch), "Updating the photo");
 
+export const startCall = (caseId: string) => call<{ ok: boolean }>(`/api/cases/${caseId}/call/start`, { method: "POST" }, "Starting the call");
+export const endCall = (caseId: string) => call<{ findings: number }>(`/api/cases/${caseId}/call/end`, { method: "POST" }, "Ending the call");
 export const verifyCase = (caseId: string) => call<Verification>(`/api/cases/${caseId}/verify`, undefined, "Verify");
 export const runLawyer = (caseId: string) => call<Case>(`/api/cases/${caseId}/lawyer`, { method: "POST" }, "Lawyer");
 export const runAdvocate = (caseId: string, tenant: TenantInfo) =>

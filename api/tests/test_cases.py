@@ -160,3 +160,23 @@ def test_stale_review_is_discarded(client, monkeypatch):
     case = client.get(f"/cases/{case_id}").json()
     assert case["legal"] is None and "discarded" in case["chat"][-1]["text"]
     assert client.post(f"/cases/{case_id}/advocate", json={}).status_code == 409
+
+
+def test_live_frames_skip_clean_and_duplicates(client, monkeypatch):
+    case_id = client.post("/cases").json()["id"]
+
+    def live(img):
+        return client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", img, "image/jpeg")},
+                           data={"client_sha256": hashlib.sha256(img).hexdigest(), "live": "true"}).json()
+
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
+        room_guess="kitchen", issues=[], model="fake", say="Looks fine here."))
+    assert live(IMG_A)["kept"] is False  # clean live frames aren't evidence
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
+        room_guess="bathroom", issues=[MOLD], model="fake", say="That's mold."))
+    assert live(IMG_A)["kept"] is True
+    assert live(IMG_B)["kept"] is False  # same mold seen again right away
+    case = client.get(f"/cases/{case_id}").json()
+    assert len(case["ledger"]) == 1
+    agents = [m["agent"] for m in case["chat"]]
+    assert "lawyer" in agents and "advocate" in agents  # Theo and June chime in on the live finding

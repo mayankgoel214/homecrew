@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { frameImageUrl, runLawyer, type Case } from "@/lib/api";
 import { PERSONAS } from "@/lib/crew";
 import StatuteCard from "@/components/StatuteCard";
@@ -12,15 +12,26 @@ export default function LegalReview({
   kase,
   findingCount,
   uploading,
+  autoStart = false,
   onChange,
 }: {
   kase: Case;
   findingCount: number;
   uploading: boolean; // a photo is still being analyzed
+  autoStart?: boolean; // run the review right away (after a call ends)
   onChange: (c: Case) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (autoStart && !started.current && !kase.legal && findingCount > 0) {
+      started.current = true;
+      review();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   async function review() {
     setBusy(true);

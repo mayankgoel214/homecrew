@@ -65,6 +65,8 @@ export interface CrewVoice {
   /** Resolve when the line has finished (or been cancelled). */
   speak(text: string, persona: Persona): Promise<void>;
   cancel(): void;
+  /** Optional: start fetching audio for a line that will be spoken soon. */
+  prepare?(text: string, persona: Persona): void;
 }
 
 /** How long a line stays up with no audio: roughly reading speed, clamped. */
@@ -146,4 +148,88 @@ export function unlockBrowserVoice() {
   const u = new SpeechSynthesisUtterance(" ");
   u.volume = 0;
   window.speechSynthesis.speak(u);
+}
+
+// ---- human voices (Cartesia, via our server) -------------------------------------------------
+
+// One shared <audio> element: iOS only lets a page play sound from an element it has already
+// played from inside a tap, so unlockAudio() is called from the "Start call" tap.
+let sharedAudio: HTMLAudioElement | null = null;
+// 0.1 s of silence as a WAV, built here so it's always a valid file.
+function silentWav(): string {
+  const samples = 800; // 8 kHz, 8-bit mono
+  const bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const text = (offset: number, str: string) => [...str].forEach((c, i) => (bytes[offset + i] = c.charCodeAt(0)));
+  text(0, "RIFF"); view.setUint32(4, 36 + samples, true); text(8, "WAVE");
+  text(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true); view.setUint32(28, 8000, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+  text(36, "data"); view.setUint32(40, samples, true);
+  bytes.fill(128, 44); // 8-bit silence is the midpoint
+  return "data:audio/wav;base64," + btoa(String.fromCharCode(...bytes));
+}
+
+export function unlockAudio() {
+  if (typeof window === "undefined") return;
+  sharedAudio ??= new Audio();
+  sharedAudio.src = silentWav();
+  sharedAudio.play().catch(() => {});
+  unlockBrowserVoice();
+}
+
+/** Real human voices. Falls back to the next voice (browser speech, then captions) on any error. */
+export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
+  const pending = new Map<string, Promise<string | null>>(); // line -> object URL
+  let stopCurrent: (() => void) | null = null;
+  const key = (text: string, p: Persona) => `${p.id}|${text}`;
+
+  const fetchLine = (text: string, persona: Persona) => {
+    const k = key(text, persona);
+    if (!pending.has(k)) {
+      pending.set(
+        k,
+        fetch("/api/tts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ agent: persona.id, text: speakable(text) }),
+        })
+          .then((r) => (r.ok ? r.blob() : null))
+          .then((b) => (b ? URL.createObjectURL(b) : null))
+          .catch(() => null),
+      );
+      if (pending.size > 60) pending.delete(pending.keys().next().value!);
+    }
+    return pending.get(k)!;
+  };
+
+  return {
+    prepare: fetchLine,
+    async speak(text, persona) {
+      const url = await fetchLine(text, persona);
+      if (!url) return fallback.speak(text, persona);
+      const audio = (sharedAudio ??= new Audio());
+      return new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(safety);
+          audio.onended = audio.onerror = null;
+          stopCurrent = null;
+          resolve();
+        };
+        const safety = setTimeout(done, readingMs(text) * 2 + 6000);
+        stopCurrent = () => {
+          audio.pause();
+          done();
+        };
+        audio.onended = audio.onerror = done;
+        audio.src = url;
+        audio.play().catch(() => {
+          done();
+        });
+      });
+    },
+    cancel() {
+      stopCurrent?.();
+      fallback.cancel();
+    },
+  };
 }

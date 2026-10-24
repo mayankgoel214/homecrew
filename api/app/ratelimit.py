@@ -18,8 +18,8 @@ from fastapi import HTTPException, Request
 
 WINDOW = 600  # seconds (10 minutes)
 # Generous on purpose: everyone on campus wifi can share one public IP.
-PER_VISITOR = {"case": 30, "upload": 60, "lawyer": 20, "advocate": 20}
-GLOBAL_GEMMA_PER_HOUR = 600  # all visitors combined, per instance
+PER_VISITOR = {"case": 30, "upload": 120, "lawyer": 20, "advocate": 20, "tts": 300}
+GLOBAL_GEMMA_PER_HOUR = 1200  # all visitors combined, per instance
 
 
 class SlidingWindow:
@@ -64,7 +64,7 @@ def rate_limit(kind: str):
     def check(request: Request) -> None:
         ip = visitor_ip(request)
         wait = limiter.hit(f"{kind}:{ip}", PER_VISITOR[kind], WINDOW)
-        if wait is None and kind != "case":
+        if wait is None and kind not in ("case", "tts"):  # only Gemma calls count toward the global cap
             wait = limiter.hit("gemma:global", GLOBAL_GEMMA_PER_HOUR, 3600)
         if wait is not None:
             minutes = max(1, round(wait / 60))

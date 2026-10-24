@@ -53,6 +53,7 @@ class InspectorResult(BaseModel):
     room_guess: str = "other"
     issues: list[Issue]
     model: str
+    say: str = ""  # Rosa's spoken line on the call (in character; facts live in `issues`)
 
 
 def _to_bbox(box) -> list[float] | None:
@@ -89,4 +90,5 @@ def inspect(image: bytes, notes: str = "", mime_type: str = "image/jpeg") -> Ins
         issue.needs_human_check = issue.confidence < HUMAN_CHECK_BELOW
         issues.append(issue)
 
-    return InspectorResult(room_guess=str(raw.get("room_guess") or "other"), issues=issues, model=model)
+    say = " ".join(str(raw.get("say") or "").split())[:240]
+    return InspectorResult(room_guess=str(raw.get("room_guess") or "other"), issues=issues, model=model, say=say)

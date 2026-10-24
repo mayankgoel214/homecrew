@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,7 @@ from app.gemma import GemmaError
 from app.ratelimit import fingerprint, rate_limit, visitor_ip
 from app.statutes import va_code_lookup
 from app.store import Case, ledger_export, now, store
+from app.voice import VoiceUnavailable, synthesize
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -45,6 +47,23 @@ def statute(section: str) -> dict:
     if not found:
         raise HTTPException(404, "We only cite the Virginia Code sections we have cached")
     return found
+
+
+class SpeakRequest(BaseModel):
+    agent: str
+    text: str = Field(max_length=600)
+
+
+@app.post("/tts", dependencies=[Depends(rate_limit("tts"))])
+def tts(body: SpeakRequest) -> Response:
+    """One crew line as MP3. 503 when voice isn't configured, so the browser falls back."""
+    try:
+        audio = synthesize(body.agent, body.text)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except VoiceUnavailable as e:
+        raise HTTPException(503, str(e)) from e
+    return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=86400"})
 
 
 # ---- cases -------------------------------------------------------------------------------
@@ -89,6 +108,7 @@ async def add_frame(
     client_sha256: str = Form(""),
     captured_at: str = Form(""),
     notes: str = Form(""),
+    live: bool = Form(False),  # sent automatically by the live call, not a deliberate snapshot
 ) -> dict:
     case = _case(case_id)
     if len(case.frames) >= MAX_FRAMES:
@@ -101,19 +121,70 @@ async def add_frame(
     photo_number = len(case.frames) + 1
     # This endpoint is async (for the upload), so blocking work goes to a thread. Calling Gemma
     # directly here would freeze the event loop: no chat streaming, and uploads would queue.
-    await asyncio.to_thread(crew.inspector_looking, case_id, photo_number)
+    if not live:
+        await asyncio.to_thread(crew.inspector_looking, case_id, photo_number)
     try:
         result = await asyncio.to_thread(inspect, data, notes, frame.content_type)
     except GemmaError as e:
-        await asyncio.to_thread(
-            store.post, case_id, "inspector", f"I couldn't analyze photo #{photo_number}: {e}", "error")
+        if not live:  # a dropped live frame isn't worth interrupting the call for
+            await asyncio.to_thread(
+                store.post, case_id, "inspector", f"I couldn't analyze photo #{photo_number}: {e}", "error")
         raise HTTPException(502, str(e)) from e
+
+    if live and not _worth_keeping(case, result.issues):
+        if not result.issues and _quiet_for(case, "inspector", LIVE_CLEAN_COMMENT_SECONDS):
+            await asyncio.to_thread(crew.inspector_report, case_id, "", 0, result.room_guess, [], result.say)
+        return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
+
     case, added = await asyncio.to_thread(
         store.add_frame,
         case_id, data, client_sha256, captured_at[:40] or None, result.room_guess, result.issues, result.model,
     )
-    await asyncio.to_thread(crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues)
-    return {"frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump()}
+    await asyncio.to_thread(
+        crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues, result.say)
+    if live and result.issues:
+        await asyncio.to_thread(crew.lawyer_quick_take, case_id, result.issues)
+    return {"kept": True, "frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump(),
+            "issues": [i.model_dump() for i in result.issues], "say": result.say}
+
+
+LIVE_DUPLICATE_SECONDS = 60
+LIVE_CLEAN_COMMENT_SECONDS = 25
+
+
+def _seconds_since(iso: str) -> float:
+    return (datetime.now(timezone.utc) - datetime.fromisoformat(iso)).total_seconds()
+
+
+def _worth_keeping(case: Case, issues) -> bool:
+    """Live frames only become evidence if they show a kind of problem we haven't recorded in the
+    last LIVE_DUPLICATE_SECONDS (the camera lingers on the same mold for several frames)."""
+    if not issues:
+        return False
+    recent: set[str] = set()
+    for f in case.frames:
+        if not f.removed and _seconds_since(case.ledger[f.seq].received_at) < LIVE_DUPLICATE_SECONDS:
+            recent |= {i.type for n, i in enumerate(f.issues) if n not in f.dismissed}
+    return not {i.type for i in issues} <= recent
+
+
+def _quiet_for(case: Case, agent: str, seconds: float) -> bool:
+    said = [m for m in case.chat if m.agent == agent and m.kind == "message"]
+    return not said or _seconds_since(said[-1].ts) > seconds
+
+
+@app.post("/cases/{case_id}/call/start")
+def call_start(case_id: str) -> dict:
+    if not _case(case_id).chat:  # greet once per case
+        crew.greet(case_id)
+    return {"ok": True}
+
+
+@app.post("/cases/{case_id}/call/end")
+def call_end(case_id: str) -> dict:
+    issues, _ = _case(case_id).active_issues()
+    crew.call_ended(case_id, len(issues))
+    return {"findings": len(issues)}
 
 
 @app.get("/cases/{case_id}/frames/{frame_id}/image")

@@ -20,20 +20,63 @@ def inspector_looking(case_id: str, photo_number: int) -> None:
     db.store.post(case_id, "inspector", f"Looking at photo #{photo_number}…", kind="status")
 
 
-def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, issues: list[Issue]) -> None:
-    where = ROOM.get(room, room.replace("_", " "))
-    head = f"Photo #{photo_number}" + (f" ({where})" if where else "")
+def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, issues: list[Issue],
+                     say: str = "") -> None:
+    """Rosa reports a photo. Her spoken line comes from Gemma (in character); if it's missing we
+    build one from the structured findings."""
     refs = {"frame_id": frame_id}
     if not issues:
-        db.store.post(case_id, "inspector", f"{head}: no visible problems. I saved it as evidence anyway.", refs=refs)
+        db.store.post(case_id, "inspector", say or "This spot looks fine. Keep going.", refs=refs)
         return
-    found = "; ".join(f"{i.label} ({_pct(i.confidence)} sure, severity {i.severity}/5)" for i in issues)
-    db.store.post(case_id, "inspector", f"{head}: I see {found}. @Lawyer this is ready for you.", refs=refs)
+    found = "; ".join(i.label for i in issues)
+    db.store.post(case_id, "inspector", f"{say or f'I see {found}.'} @Lawyer", refs=refs)
     unsure = [i.label for i in issues if i.needs_human_check]
     if unsure:
         db.store.post(case_id, "inspector",
-                   f"I'm not certain about {', '.join(unsure)}. Please check it, and tap it in the ledger "
-                   "if it's not a real problem.", refs=refs)
+                      f"I'm not certain about {', '.join(unsure)}. If it's not a real problem, tap it in your case file.",
+                      refs=refs)
+
+
+# Theo's instant take during the call. Each line restates a specific subsection of the cached
+# statute text (no model call), so it's immediate and can't misquote the law. The full,
+# Gemma-written legal review runs when the call ends.
+QUICK_TAKE = {
+    "mold": ("55.1-1220", "your landlord has to keep moisture and mold out, and when mold is visible they have to promptly remediate it."),
+    "water_damage": ("55.1-1220", "your landlord has to keep the place from collecting moisture, which is what leads to mold."),
+    "exposed_wiring": ("55.1-1220", "your landlord has to keep the electrical in good and safe working order."),
+    "no_heat_indicator": ("55.1-1220", "your landlord has to supply heat in season and hot water."),
+    "missing_smoke_detector": ("55.1-1220", "smoke alarms have to be there and working, and your landlord has to certify that every year."),
+    "pest": ("55.1-1244.1", "for rodents, once you tell your landlord in writing they have 14 days to take reasonable steps."),
+}
+DEFAULT_TAKE = ("55.1-1220", "your landlord has to make the repairs needed to keep the place fit and habitable.")
+
+
+def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
+    seen = set()
+    for issue in issues:
+        if issue.type in seen:
+            continue
+        seen.add(issue.type)
+        section, line = QUICK_TAKE.get(issue.type, DEFAULT_TAKE)
+        text = f"On the {issue.label}: under § {section}, {line}"
+        if issue.severity >= 4:
+            text += " It's serious enough that it could help you if you're ever taken to court over rent."
+        db.store.post(case_id, "lawyer", text, refs={"section": section})
+    db.store.post(case_id, "advocate", "Got it, that's going in your repair letter.")
+
+
+def greet(case_id: str) -> None:
+    db.store.post(case_id, "inspector",
+                  "Hi, I'm Rosa! Walk me through your place slowly and point the camera at anything that worries you.")
+    db.store.post(case_id, "lawyer", "I'm Theo. I'll tell you what Virginia law says about each thing Rosa finds.")
+    db.store.post(case_id, "advocate", "And I'm June. When we hang up, I'll write your repair letter and complaint.")
+
+
+def call_ended(case_id: str, findings: int) -> None:
+    if findings:
+        db.store.post(case_id, "advocate", "Thanks for walking us through. Let me put your case file together.")
+    else:
+        db.store.post(case_id, "inspector", "I didn't spot any problems this time. Call us again if something comes up!")
 
 
 def lawyer_event(case_id: str):
