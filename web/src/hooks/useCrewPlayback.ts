@@ -8,7 +8,7 @@ const TOOL_MS = 1300; // a statute lookup flashes on Theo's tile; it isn't read 
 
 /** Plays crew messages one at a time, like people taking turns on a call.
  *  Lines said before `historyUpTo` are history: shown in the transcript, never replayed. */
-export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, voice: CrewVoice) {
+export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, voice: CrewVoice, active = true) {
   const enqueued = useRef(new Set<number>());
   const queue = useRef<ChatMessage[]>([]);
   const playing = useRef(false);
@@ -57,6 +57,7 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
     for (const m of messages) {
       if (m.seq <= historyUpTo || m.kind === "status" || enqueued.current.has(m.seq)) continue;
       enqueued.current.add(m.seq);
+      if (!active) continue; // off the call: lines go to the transcript only, nobody speaks
       queue.current.push(m);
       if (m.kind === "message" && isAgent(m.agent)) voiceRef.current.prepare?.(m.text, PERSONAS[m.agent]);
       added = true;
@@ -65,7 +66,17 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
       setBacklog(queue.current.length);
       pump();
     }
-  }, [messages, historyUpTo, pump]);
+  }, [messages, historyUpTo, pump, active]);
+
+  // Leaving the call cuts everyone off at once.
+  useEffect(() => {
+    if (active) return;
+    queue.current = [];
+    voiceRef.current.cancel();
+    setBacklog(0);
+    setSpeaking(false);
+    setCurrent(null);
+  }, [active]);
 
   const skip = useCallback(() => {
     queue.current = [];

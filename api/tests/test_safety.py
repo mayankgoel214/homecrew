@@ -18,6 +18,8 @@ def test_tiers():
     big = safety.classify("mold", "mold", "", 4, True)
     assert not any("scrub with detergent" in s for s in big["steps"])  # no DIY cleanup advice for big mold
     assert tier("no_heat_indicator", renter=False) == "diy"
+    assert tier("clogged_drain") == "diy"  # a clog is a tenant fix, even for renters
+    assert len(safety.classify("clogged_drain", "slow drain", "", 2, True)["steps"]) == 3
     assert tier("other", label="crack in load-bearing wall", renter=False) == "pro"
     assert tier("exposed_wiring", label="sparking outlet") == "emergency"
     assert tier("water_damage", note="Old stain from a past flood.") == "landlord"  # not an emergency

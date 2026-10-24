@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createCase, endCall, getCase, startCall, type Case } from "@/lib/api";
-import { PERSONAS, applyTrade, browserVoice, cartesiaVoice, isAgent, namedMentions, silentVoice, unlockAudio, type TradeId } from "@/lib/crew";
+import { applyTrade, browserVoice, cartesiaVoice, silentVoice, unlockAudio, type TradeId } from "@/lib/crew";
 import { useCrewMessages } from "@/hooks/useCrewMessages";
 import { useCrewPlayback } from "@/hooks/useCrewPlayback";
 import Lobby, { type StartOptions } from "@/components/call/Lobby";
@@ -10,7 +10,6 @@ import Report from "@/components/report/Report";
 import CallScreen, { type Source } from "@/components/call/CallScreen";
 import EvidenceLedger from "@/components/EvidenceLedger";
 import Transcript from "@/components/Transcript";
-import CrewBadge from "@/components/CrewBadge";
 import { motion } from "motion/react";
 
 type View = "lobby" | "call" | "file";
@@ -65,7 +64,8 @@ export default function HomeCrewApp() {
   }, [voiceOn]);
 
   const { messages } = useCrewMessages(kase?.id ?? null, kase?.chat ?? NO_CHAT);
-  const playback = useCrewPlayback(messages, historyUpTo.current, voice);
+  // The crew only talks during the call; the case file is silent (you narrate it, or read it).
+  const playback = useCrewPlayback(messages, historyUpTo.current, voice, view === "call");
 
   async function start(o: StartOptions) {
     const { source: src, trade: t, renter: rent, problem = "" } = o;
@@ -143,7 +143,6 @@ export default function HomeCrewApp() {
   }
 
   if (view === "file" && kase) {
-    const speaker = playback.current && isAgent(playback.current.agent) ? PERSONAS[playback.current.agent] : null;
     const caseNo = kase.id.slice(0, 4).toUpperCase();
     const opened = new Date(kase.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const sections = [
@@ -213,12 +212,6 @@ export default function HomeCrewApp() {
           </div>
         </div>
 
-        {playback.current && playback.speaking && (
-          <div aria-live="polite" className="fixed inset-x-3 bottom-3 z-20 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-hair-strong bg-surface-2 px-3 py-2.5" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
-            {speaker && <CrewBadge agent={speaker.id} size={36} state="speaking" />}
-            <p className="line-clamp-2 text-[14px] leading-snug text-ink">{namedMentions(playback.current.text)}</p>
-          </div>
-        )}
       </main>
     );
   }

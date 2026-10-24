@@ -20,6 +20,7 @@ IssueType = Literal[
     "broken_window",
     "missing_smoke_detector",
     "accessibility_barrier",
+    "clogged_drain",
     "other",
 ]
 Region = Literal[

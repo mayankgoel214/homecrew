@@ -12,6 +12,7 @@ Allowed issue types:
 - broken_window: cracked or broken glass, window that cannot close or lock
 - missing_smoke_detector: empty smoke detector mount or dangling or disconnected detector
 - accessibility_barrier: broken handrail, damaged stairs, trip hazards
+- clogged_drain: a sink, tub or shower holding standing water, or a drain that's visibly blocked
 - other: another clear habitability or safety defect
 
 Rules:

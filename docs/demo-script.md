@@ -1,176 +1,115 @@
-# HomeCrew: 2-minute demo video script
+# HomeCrew: 2-minute demo video script (v2)
 
-**Goal:** in 2:00, a judge should get (1) the problem, (2) the magic moment (a live call where the crew finds problems and talks), (3) why it's safe and grounded, (4) what tech it runs on, and (5) the impact. The crew's voices carry the call, so the narrator stays quiet there and talks over the report.
+**Structure:** two recordings, voiceover added after.
+- **Recording A (one take):** front page → call → 3 problems → End Call → scroll the report. About 1:45 raw.
+- **Recording B:** the maintenance feature (sink drain with Marco). About 45 s raw.
 
-**Track:** MLH Best Use of Gemma 4. Say "Gemma 4" out loud at least twice and show it on screen once.
+**Rules for both takes:**
+- Nobody on your side talks while recording. The crew's voices are the call audio.
+- After **End Call** the app is silent, so the report is yours to narrate.
+- No gas line in the video.
 
----
-
-## Before you hit record (15 minutes)
-
-**Props and location**
-- [ ] One room with 3 "problems". Real ones are best. Otherwise **print** the test photos big (letter size, matte, not glossy) and tape them up:
-  - `samples/mold_1.jpg` on a wall or ceiling (bathroom feel)
-  - `samples/wiring_1.jpg` next to an outlet
-  - `samples/lock_1.jpg` on a door near the handle
-- [ ] Good light. Turn on every lamp. The Inspector struggles in dim light.
-
-**Phone**
-- [ ] Do Not Disturb on, silent switch **off**, volume about 70%, brightness max.
-- [ ] Open https://homecrew-vt.vercel.app. If there's an old case, tap **New case** (or clear the case file) so the counter starts at 0.
-- [ ] Keep **I RENT** selected.
-- [ ] Do one throwaway call first to wake the server. The first call after a quiet stretch is slow.
-
-**Recording**
-- [ ] iPhone to Mac with a cable, then QuickTime → File → New Movie Recording → pick the iPhone as **camera and microphone**. This records the screen *and* the crew's voices.
-- [ ] Record the voiceover separately in a quiet room (Voice Memos is fine). Read the script out loud once; it should come in under 2:00.
-- [ ] Editor: CapCut, iMovie or Premiere. Duck the crew audio to about 30% under the voiceover; keep it at 100% when no one's narrating.
-
-**Backup:** if the camera misbehaves, use **Try the demo feed** on the front page. It plays the same three problems as a camera stream. The screen says "DEMO FEED", so it's honest.
+**Track:** MLH Best Use of Gemma 4. Say "Gemma 4" out loud twice and show it on screen once.
 
 ---
 
-## The script
-
-Times are where each beat **starts** in the final edit. **VO** = narrator voiceover. **CREW** = what the app says (roughly; Rosa's lines come from Gemma, so the wording varies).
-
-### 0:00 · Cold open: the problem (8 s)
-**Screen:** the front page as the crew pops up. Slow push-in if your editor can.
-**VO:**
-> "In Virginia, landlords bring a lawyer to eviction court three times out of four. Tenants? Less than one percent."
-
-**On-screen text (small, bottom):** `Legal Services Corporation, 2024`
-
-### 0:08 · Why it matters (7 s)
-**Screen:** stay on the crew. Tap **Rosa** so her bubble says "I spot what's broken."
-**VO:**
-> "Serious repair problems can protect you in court, but only if you documented them and told your landlord in writing. Most people never do."
-
-### 0:15 · Start the call (5 s)
-**Screen:** tap **Start a video call**. The camera opens full screen with the crew badges at the bottom.
-**VO:**
-> "HomeCrew is a video call with a crew that knows what to do."
-
-### 0:20 · The greeting (6 s), no VO
-**CREW (Rosa):** "Hi, I'm Rosa. Show me what's wrong."
-
-### 0:26 · Problem 1: mold (14 s), no VO
-**Screen:** point at the mold and **hold still for 2 seconds**. The gold corner brackets draw (Rosa is looking). Then:
-- a tier-colored box **draws onto the live camera** around the mold
-- the tag stamps in: `#01 · MOLD GROWTH · LANDLORD FIXES` (or `CALL A PRO` if it's a big patch)
-- the counter top-right goes to **1 FOUND**
-
-**CREW (Rosa):** "Significant mold growth on the wall. Don't touch it. Call a pro."
-**CREW (Theo):** "That's on your landlord. Section 55.1-1220."
-
-> **Edit:** cut the ~4 s while Rosa is analyzing down to about 1 s, or speed it up 2x with a small "2x" label. Don't hide it entirely.
-
-### 0:40 · Problem 2: exposed wiring (10 s), no VO
-**Screen:** point at the wiring and hold. The box and tag draw: `#02 · EXPOSED WIRING · CALL A PRO`.
-**CREW (Rosa):** "Exposed wiring by the outlet. Don't touch it. Call a pro."
-**CREW (Theo):** "Your landlord must fix that. Section 55.1-1220."
-
-> **Edit:** if Theo runs long, cut after "safe working order".
-
-### 0:50 · Problem 3: lock (5 s), quick cut
-**Screen:** point at the lock. Tag: `#03 · BROKEN LOCK · LANDLORD FIXES`. Show the tag stamping, then cut before Rosa finishes. The pace is the point here.
-
-### 0:55 · The safety moment: gas (10 s)
-**Screen:** tap the **mic** button (it turns brass and the screen edge glows). Say clearly: **"Wait, I think I smell gas."** The **red emergency screen** appears instantly.
-**VO (over the red screen):**
-> "Some things should never be DIY. Emergencies, gas, panel work: those rules are written in code, not left to the AI."
-
-**Screen:** tap **I'm safe, go back to the call**.
-
-### 1:05 · Hang up (5 s)
-**Screen:** tap the red **end call** button. The case file opens: "Case file" + the brass **No. XXXX** stamp + the verdict.
-**CREW (June):** "Got it. Your case file is ready."
-
-### 1:10 · The report + how it works (27 s)
-**Screen, in order, slowly:**
-1. Hold on the verdict: **"Your landlord must fix all 3."** and the color bar (3 s)
-2. Tap the **mold** row to open "What to do" and "The law" (4 s)
-3. Scroll to the **clock**: Today → Day 14 → Day 21 → Day 30 (3 s)
-4. Tap **Write my letter** → the letter appears → **Approve** → the 3 download tiles (8 s)
-5. Tap **Letter** to show the PDF for a second (3 s)
-
-**VO (this is where the tech goes):**
-> "Every agent runs on **Gemma 4**. Rosa finds the problem and draws exactly where it is. Theo can only cite statutes he actually looked up, and every quote is checked word for word against the Virginia Code. A fixed safety router rates every finding. And every photo is fingerprinted and hash-chained, so the evidence holds up. June writes a ready-to-send repair notice. You approve it. Nothing is ever sent for you."
-
-**On-screen text (small, corner, appears during the VO):** `Gemma 4 31B · Gemini API · Cloud Run · Firestore · Cartesia voices`
-
-### 1:37 · Any home problem (11 s)
-**Screen:** back to the front page → **Describe a problem instead** → type **"my sink won't drain"** → **Call the right expert** → **Marco the plumber** picks up in his cap and overalls.
-**VO:**
-> "Not sure who to call? Describe it, and HomeCrew connects you to the right expert: plumber, electrician, heating, pests, locks."
-
-**CREW (Marco):** "Hi, I'm Marco, your plumber. Show me the problem…" (let a second play, then cut)
-
-### 1:48 · Close (12 s)
-**Screen:** the front page crew again, or a simple end card: logo, `homecrew-vt.vercel.app`, `github.com/mayankgoel214/homecrew`.
-**VO:**
-> "It runs on free tiers, so a legal aid clinic could deploy it tomorrow. HomeCrew: a free inspector, lawyer and paralegal for every renter."
-
-**End card text:** `HomeCrew · Built with Gemma 4 · GDG Build with AI × Hacktoberfest 2026`
+## Final cut at a glance (exactly 2:00)
+| Time | Length | Footage | Audio |
+|---|---|---|---|
+| 0:00 | 15 s | A: front page, crew pops up | VO: the problem |
+| 0:15 | 40 s | A: the call, 3 problems | Crew voices only |
+| 0:55 | 3 s | A: tap End Call → case file stamps in | Silence or a light whoosh |
+| 0:58 | 12 s | A: the report (verdict, rows, clock) | VO: what the report is |
+| 1:10 | 15 s | A: keep scrolling the report (letter → approve → downloads) | VO: how it's built |
+| 1:25 | 28 s | B: maintenance, sink drain | VO line in, then Marco's voice |
+| 1:53 | 7 s | End card | VO: close |
 
 ---
 
-## The voiceover, all in one place (for recording)
-About 205 words, roughly 85 seconds at a calm pace. The remaining time is the crew talking.
-
-> In Virginia, landlords bring a lawyer to eviction court three times out of four. Tenants? Less than one percent.
->
-> Serious repair problems can protect you in court, but only if you documented them and told your landlord in writing. Most people never do.
->
-> HomeCrew is a video call with a crew that knows what to do.
->
-> *(pause: the crew talks)*
->
-> Some things should never be DIY. Emergencies, gas, panel work: those rules are written in code, not left to the AI.
->
-> *(pause: June speaks)*
->
-> Every agent runs on Gemma 4. Rosa finds the problem and draws exactly where it is. Theo can only cite statutes he actually looked up, and every quote is checked word for word against the Virginia Code. A fixed safety router rates every finding. And every photo is fingerprinted and hash-chained, so the evidence holds up. June writes a ready-to-send repair notice. You approve it. Nothing is ever sent for you.
->
-> Not sure who to call? Describe it, and HomeCrew connects you to the right expert: plumber, electrician, heating, pests, locks.
->
-> It runs on free tiers, so a legal aid clinic could deploy it tomorrow. HomeCrew: a free inspector, lawyer and paralegal for every renter.
+## Before recording (10 minutes)
+- [ ] One room with 3 problems. Real is best; otherwise print `samples/mold_1.jpg`, `samples/wiring_1.jpg` and `samples/lock_1.jpg` at letter size (matte) and tape them up a few steps apart.
+- [ ] A sink for Recording B: fill it with a few inches of water so it looks clogged (stopper in).
+- [ ] Every light on. Phone: Do Not Disturb on, silent switch **off**, volume about 70%, brightness max.
+- [ ] Open https://homecrew-vt.vercel.app → if a case file is shown, tap **New case**. Keep **I RENT**.
+- [ ] Do one throwaway call to wake the server (the first call after idle is slow).
+- [ ] Record the phone: cable to Mac → QuickTime → New Movie Recording → choose the iPhone as **camera and microphone** (this captures the screen and the crew's voices).
 
 ---
 
-## Timing budget
-| Beat | Start | Length |
-|---|---|---|
-| Problem (hook + why) | 0:00 | 15 s |
-| Start the call + greeting | 0:15 | 11 s |
-| Mold | 0:26 | 14 s |
-| Wiring | 0:40 | 10 s |
-| Lock | 0:50 | 5 s |
-| Gas emergency | 0:55 | 10 s |
-| Hang up | 1:05 | 5 s |
-| Report + tech | 1:10 | 27 s |
-| Maintenance expert | 1:37 | 11 s |
-| Close | 1:48 | 12 s |
-| **Total** | | **2:00** |
+## Recording A: the full call + report (one take, about 1:45 raw)
 
-**If you're over time, cut in this order:** the lock (5 s), the Letter PDF tap (3 s), Theo's line on the wiring (4 s), the Rosa bubble tap at the start (2 s).
+| Step | Do this | Raw time | Kept in the edit |
+|---|---|---|---|
+| A1 | Start recording on the **front page**. Let the crew pop up and breathe. Tap **Rosa** once (her bubble appears). | 20 s | **15 s** |
+| A2 | Tap **Start a video call**. Rosa says: *"Hi, I'm Rosa. Show me what's wrong."* | 6 s | **4 s** |
+| A3 | **Mold:** walk to it, hold the phone still 2 s. The gold brackets draw, then the box + tag `#01 · MOLD GROWTH · …`. Rosa: *"Significant mold growth on the wall. Don't touch it. Call a pro."* Theo: *"That's on your landlord. Section 55.1-1220."* | 15 s | **12 s** |
+| A4 | **Wiring:** same. Tag `#02 · EXPOSED WIRING · CALL A PRO`. Rosa: *"Exposed wiring by the outlet. Don't touch it. Call a pro."* Theo: *"Your landlord must fix that. Section 55.1-1220."* | 15 s | **12 s** |
+| A5 | **Lock:** same. Tag `#03 · BROKEN LOCK · LANDLORD FIXES`. Rosa: *"The door lock is broken. Landlord's job."* | 15 s | **12 s** |
+| A6 | Tap the red **End Call**. The case file stamps in; everything goes silent. | 3 s | **3 s** |
+| A7 | **Report, slowly** (about 3 s per action): hold on the verdict → tap the mold row open → close it → scroll to the clock → tap **Write my letter** (June takes ~6 s; cut that) → tap **Approve** → hold on the 3 download tiles → tap **Letter** so the PDF shows | 45 s | **27 s** |
+| | **Total** | **~2:00** | **1:25** |
+
+> **The 40-second call (A2–A5):** 4 + 12 + 12 + 12 = 40 s. If a problem runs long, trim the walking between spots, never the crew's lines. If Rosa misses one, re-shoot just that spot and splice it in.
 
 ---
+
+## Recording B: maintenance (about 45 s raw → 28 s kept)
+| Step | Do this | Raw | Kept |
+|---|---|---|---|
+| B1 | Front page → tap **Describe a problem instead** → type **"my sink won't drain"** | 10 s | **5 s** |
+| B2 | Tap **Call the right expert** → **Marco** (cap and overalls) picks up: *"Hi, I'm Marco, your plumber. Show me the problem."* | 8 s | **6 s** |
+| B3 | Point at the sink full of water and hold still. Box + tag `CLOGGED DRAIN · SAFE DIY`. Marco: *"Standing water in the sink. You can fix this."* | 15 s | **12 s** |
+| B4 | Tap **End Call** → the report shows the **Safe DIY** tag. Tap the row: stopper, plunger, no mixing drain cleaners. | 12 s | **5 s** |
+| | **Total** | **~45 s** | **28 s** |
+
+---
+
+## Voiceover (record after; about 150 words / 70 s)
+Read at a calm pace. Each block's target length is in brackets.
+
+**0:00, over the front page [15 s]**
+> "In Virginia, landlords bring a lawyer to eviction court three times out of four. Tenants? Less than one percent. And repair problems only help you in court if you documented them. HomeCrew does that for you, on a video call."
+
+**0:15–0:55: no voiceover.** Let the crew talk.
+
+**0:58, over the verdict and rows [12 s]**
+> "Hang up, and your case file is ready: what's wrong, how urgent it is, what to do now, and exactly which Virginia law your landlord has to follow."
+
+**1:10, over the letter, approve and downloads [15 s]**
+> "Every agent runs on **Gemma 4**. It sees the problem and marks where it is. Theo pulls the real statute from Virginia's official legal API. Fixed safety rules rate every finding. June drafts the letter; you approve it."
+
+**On-screen text during this block (small, corner):** `Gemma 4 31B · Gemini API · law.lis.virginia.gov API · Cartesia voices · Cloud Run · Firestore`
+
+**1:25, over the start of the maintenance clip [6 s]**
+> "And it's not just for disputes. Describe any problem, and HomeCrew calls the right expert."
+
+*(Then let Marco's voice play for the rest of the clip.)*
+
+**1:53, over the end card [7 s]**
+> "Built on **Gemma 4** and free tiers. A crew in every renter's pocket."
+
+**End card:** `HomeCrew · homecrew-vt.vercel.app · github.com/mayankgoel214/homecrew · Built with Gemma 4`
+
+---
+
+## If you're over 2:00, cut in this order
+1. Recording B step B4 (the report tap): 5 s
+2. The **Letter** PDF tap in A7: 3 s
+3. The Rosa bubble tap in A1: 2 s
+4. The lock (A5): 12 s. Keep this as the last resort; three problems reads stronger than two.
 
 ## Honesty rules (judges check)
-- Don't fake findings. If Rosa misses something on a take, re-shoot or use the demo feed (it's labeled).
-- If you speed up the analysis wait, show a small "2x" label.
-- The stats are real and sourced: LSC Civil Court Data (2024 representation), Va. Code § 55.1-1241 as amended by SB 373 (2026). Don't say SB 373 "made mold a defense"; say repair problems "can protect you in court."
+- Don't fake findings. If Rosa misses, re-shoot.
+- If you speed up any wait, show a small "2x".
+- Stats: LSC Civil Court Data (2024: 74.6% of landlords vs 0.8% of tenants had a lawyer). Say repair problems "can help you in court", not that the law "made mold a defense".
 
-## Shot checklist (tick off while filming)
-- [ ] Crew pop-up on the front page
-- [ ] Rosa tap bubble
-- [ ] Call connects + greeting
-- [ ] Mold: reticle + tag + Theo line
-- [ ] Wiring: "Don't touch it" + tag
-- [ ] Lock tag
-- [ ] Mic on → "I smell gas" → red card → "I'm safe"
-- [ ] Hang up → case file stamp + June line
-- [ ] Verdict → expand a row → clock → Write letter → Approve → downloads → Letter PDF
-- [ ] Describe "my sink won't drain" → Marco greeting
+## Shot checklist
+- [ ] Front page crew pop-up + Rosa bubble
+- [ ] Greeting
+- [ ] Mold: box + tag + Rosa + Theo
+- [ ] Wiring: box + tag + "Don't touch it"
+- [ ] Lock: box + tag
+- [ ] End Call → case file stamp (silent)
+- [ ] Verdict → row open → clock → Write my letter → Approve → downloads → Letter PDF
+- [ ] B: Describe "my sink won't drain" → Marco → sink → "You can fix this" → Safe DIY steps
 - [ ] End card
