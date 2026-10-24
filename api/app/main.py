@@ -171,7 +171,10 @@ def _worth_keeping(case: Case, issues) -> bool:
         return False
     recent: set[str] = set()
     for f in case.frames:
-        if not f.removed and _seconds_since(case.ledger[f.seq].received_at) < LIVE_DUPLICATE_SECONDS:
+        received = case.ledger[f.seq].received_at
+        if case.call_started_at and received < case.call_started_at:
+            continue  # an earlier call (or take) doesn't count
+        if not f.removed and _seconds_since(received) < LIVE_DUPLICATE_SECONDS:
             recent |= {i.type for n, i in enumerate(f.issues) if n not in f.dismissed}
     return not {i.type for i in issues} <= recent
 
@@ -207,6 +210,8 @@ def call_start(case_id: str, body: CallStart | None = None) -> dict:
         case.trade = trades.get(body.trade).id
         case.renter = body.renter
         case.checklist_step = 0
+        case.call_seq = len(case.chat)  # each call is its own conversation
+        case.call_started_at = datetime.now(timezone.utc).isoformat()  # sub-second, so back-to-back takes stay apart
 
     case = _update(case_id, change)
     crew.greet(case_id, case.trade, case.renter, body.problem)  # the expert says hello

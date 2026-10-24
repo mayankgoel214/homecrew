@@ -92,26 +92,37 @@ DEFAULT_TAKE = ("55.1-1220", "your landlord has to make the repairs needed to ke
 
 # What Theo actually says on the call: one beat, about 6 words. The full explanation is in the
 # case file; on the call he just confirms whose problem it is and the section.
-THEO_LINES = [  # spoken in turn; the section number lives in the case file, not the call
-    "Virginia law puts that on your landlord.",
-    "Your landlord has to fix that.",
-    "That one's on your landlord too.",
+# The hand-off on every finding: Rosa spots it, Theo answers her, June answers him. Short lines
+# that name each other, so it sounds like a crew talking, not three separate announcements.
+# The section numbers and full explanations live in the case file.
+THEO_LINES = [
+    "Good catch, Rosa. That's on your landlord.",
+    "Landlord has to fix that one too.",
+    "Same rule, Rosa. Landlord's job.",
+]
+JUNE_LINES = [
+    "Got it, Theo. It's going in the letter.",
+    "Adding that to the letter.",
+    "That's in the letter too.",
 ]
 
 
 def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
-    """Renters only. ONE short line from Theo per kind of problem per case, only when the landlord
-    is on the hook. June doesn't chime in each time; she sums up when the call ends."""
+    """Renters only. Theo answers Rosa, then June answers Theo, once per kind of problem in THIS
+    call (a new take or 'Call again' starts the conversation over)."""
     case = db.store.get(case_id)
-    already = {m.refs.get("issue_type") for m in case.chat if m.agent == "lawyer"}
+    this_call = [m for m in case.chat if m.seq >= case.call_seq]
+    already = {m.refs.get("issue_type") for m in this_call if m.agent == "lawyer"}
+    n = sum(1 for m in this_call if m.agent == "lawyer")
     for issue in issues:
         if issue.type in already or not issue.safety or issue.safety["tier"] not in ("landlord", "pro"):
             continue
         already.add(issue.type)
         section, _ = QUICK_TAKE.get(issue.type, DEFAULT_TAKE)
-        said = sum(1 for m in case.chat if m.agent == "lawyer")
-        db.store.post(case_id, "lawyer", THEO_LINES[min(said, len(THEO_LINES) - 1)],
+        db.store.post(case_id, "lawyer", THEO_LINES[min(n, len(THEO_LINES) - 1)],
                       refs={"section": section, "issue_type": issue.type})
+        db.store.post(case_id, "advocate", JUNE_LINES[min(n, len(JUNE_LINES) - 1)])
+        n += 1
 
 
 def greet(case_id: str, trade_id: str = "general", renter: bool = True, problem: str = "") -> None:

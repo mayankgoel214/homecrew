@@ -179,4 +179,18 @@ def test_live_frames_skip_clean_and_duplicates(client, monkeypatch):
     case = client.get(f"/cases/{case_id}").json()
     assert len(case["ledger"]) == 1
     agents = [m["agent"] for m in case["chat"]]
-    assert agents.count("lawyer") == 1 and "advocate" not in agents  # Theo once per problem; June waits for the end
+    assert agents.count("lawyer") == 1 and agents.count("advocate") == 1  # Rosa -> Theo -> June, once per problem
+
+
+def test_each_call_is_its_own_conversation(client, monkeypatch):
+    case_id = client.post("/cases").json()["id"]
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
+        room_guess="bathroom", issues=[MOLD], model="fake", say="Mold on the ceiling."))
+
+    def call():
+        client.post(f"/cases/{case_id}/call/start", json={"trade": "general", "renter": True})
+        client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_A, "image/jpeg")}, data={"live": "true"})
+        start = client.get(f"/cases/{case_id}").json()["call_seq"]
+        return [m["agent"] for m in client.get(f"/cases/{case_id}").json()["chat"][start:]]
+
+    assert "lawyer" in call() and "advocate" in call()  # a second take still gets Theo and June
