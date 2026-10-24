@@ -55,6 +55,9 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
         return
     tier = worst.safety["tier"] if worst else None
     first = re.split(r"(?<=[.!?])\s", _short(say).strip())[0] if say else ""
+    words = first.split()
+    if len(words) > 8:  # keep each finding to a few seconds of speech
+        first = " ".join(words[:8]).rstrip(",;:") + "."
     line = first or f"{issues[0].label[:1].upper()}{issues[0].label[1:]}."
     if tier:
         line = f"{line} {TIER_TAIL[tier]}"
@@ -89,10 +92,11 @@ DEFAULT_TAKE = ("55.1-1220", "your landlord has to make the repairs needed to ke
 
 # What Theo actually says on the call: one beat, about 6 words. The full explanation is in the
 # case file; on the call he just confirms whose problem it is and the section.
-THEO_LINE = {
-    "pest": "Landlord's duty. Fourteen days after written notice.",
-    "exposed_wiring": "Your landlord must fix that. Section 55.1-1220.",
-}
+THEO_LINES = [  # spoken in turn; the section number lives in the case file, not the call
+    "Virginia law puts that on your landlord.",
+    "Your landlord has to fix that.",
+    "That one's on your landlord too.",
+]
 
 
 def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
@@ -105,7 +109,8 @@ def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
             continue
         already.add(issue.type)
         section, _ = QUICK_TAKE.get(issue.type, DEFAULT_TAKE)
-        db.store.post(case_id, "lawyer", THEO_LINE.get(issue.type, f"That's on your landlord. Section {section}."),
+        said = sum(1 for m in case.chat if m.agent == "lawyer")
+        db.store.post(case_id, "lawyer", THEO_LINES[min(said, len(THEO_LINES) - 1)],
                       refs={"section": section, "issue_type": issue.type})
 
 
