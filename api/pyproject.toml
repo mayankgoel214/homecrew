@@ -1,0 +1,23 @@
+[project]
+name = "homecrew-api"
+version = "0.1.0"
+description = "HomeCrew backend: Gemma 4 Inspector, Lawyer and Advocate agents"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "google-genai>=1.0",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "python-multipart>=0.0.12",
+  "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.7"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

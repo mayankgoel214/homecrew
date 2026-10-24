@@ -1,0 +1,26 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+*service-account*.json
+firebase-adminsdk*.json
+
+# node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# os / editors
+.DS_Store
+.vscode/
+.idea/
+
+# never commit real tenant photos; put demo images in samples/ only if they contain no people or addresses
+uploads/
