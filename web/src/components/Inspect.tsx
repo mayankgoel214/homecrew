@@ -7,11 +7,17 @@ import EvidenceLedger from "@/components/EvidenceLedger";
 import LegalReview from "@/components/LegalReview";
 import AdvocatePanel from "@/components/AdvocatePanel";
 import CrewCall from "@/components/CrewCall";
+import { PERSONAS } from "@/lib/crew";
 
 type CameraState = "off" | "starting" | "live" | "unavailable";
 type Shot = { photo: Photo; issues?: Issue[]; error?: string };
 
 const CASE_KEY = "homecrew.caseId";
+const STEPS = [
+  { label: "Photograph", agent: "inspector" },
+  { label: "Check the law", agent: "lawyer" },
+  { label: "Paperwork", agent: "advocate" },
+] as const;
 const NO_CHAT: Case["chat"] = [];
 const SEVERITY_COLOR = ["", "#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
 const REGION_CELL: Record<string, [number, number]> = {
@@ -138,21 +144,43 @@ export default function Inspect() {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">HomeCrew</h1>
-          <p className="text-sm text-neutral-400">
-            Photograph each problem. Add as many photos as you need, then check the law.
-          </p>
+      <header className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden>
+              <rect width="32" height="32" rx="9" fill="#f5b301" />
+              <path d="M8 16.5 16 9l8 7.5V24a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1z" fill="#0a0a0a" />
+              <path d="m12.5 18.5 2.5 2.5 4.5-5" stroke="#f5b301" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div>
+              <h1 className="text-xl font-bold leading-none tracking-tight">HomeCrew</h1>
+              <p className="mt-1 text-xs text-neutral-400">A free inspector, lawyer and paralegal for Virginia renters</p>
+            </div>
+          </div>
+          {kase && (
+            <button onClick={newCase} className="shrink-0 rounded-lg px-2 py-1 text-xs text-neutral-400 underline-offset-4 hover:underline">
+              New case
+            </button>
+          )}
         </div>
-        {kase && (
-          <button onClick={newCase} className="shrink-0 text-xs text-neutral-400 underline">
-            New case
-          </button>
-        )}
+        <ol aria-label="Progress" className="grid grid-cols-3 gap-1.5">
+          {STEPS.map((step, i) => {
+            const done = [Boolean(kase?.frames.length), Boolean(kase?.legal), Boolean(kase?.draft?.approved)][i];
+            const accent = PERSONAS[step.agent].accent;
+            return (
+              <li key={step.label} className="flex flex-col gap-1">
+                <span className="h-1 rounded-full" style={{ background: done ? accent : "#262626" }} />
+                <span className={`text-[11px] font-medium ${done ? "text-neutral-100" : "text-neutral-400"}`}>
+                  {i + 1}. {step.label}
+                  <span className="sr-only">{done ? " (done)" : ""}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
       </header>
 
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-neutral-900">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900">
         <video
           ref={videoRef}
           playsInline
@@ -229,15 +257,15 @@ export default function Inspect() {
 
       <div className="flex gap-3">
         {shot ? (
-          <button onClick={() => setShot(null)} disabled={busy} className="flex-1 rounded-md bg-white py-3 font-medium text-black disabled:opacity-50">
+          <button onClick={() => setShot(null)} disabled={busy} className="flex-1 rounded-xl bg-white py-3 font-semibold text-black transition-transform active:scale-[0.98] disabled:opacity-50">
             {camera === "live" ? "Next photo" : "Done"}
           </button>
         ) : (
-          <button onClick={capture} disabled={camera !== "live" || busy} className="flex-1 rounded-md bg-white py-3 font-medium text-black disabled:opacity-40">
+          <button onClick={capture} disabled={camera !== "live" || busy} className="flex-1 rounded-xl bg-white py-3 font-semibold text-black transition-transform active:scale-[0.98] disabled:opacity-40">
             Capture
           </button>
         )}
-        <button onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-md border border-neutral-600 px-4 py-3 disabled:opacity-50">
+        <button onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold disabled:opacity-50">
           Use a photo
         </button>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" aria-label="Upload a photo" />

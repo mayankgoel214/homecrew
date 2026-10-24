@@ -2,12 +2,23 @@
 
 import { useState } from "react";
 import { approveDraft, exportUrl, runAdvocate, type Case, type TenantInfo } from "@/lib/api";
+import { PERSONAS } from "@/lib/crew";
+import { Button, Icon, Panel, SectionHeader } from "@/components/ui";
 
+const JUNE = PERSONAS.advocate.accent;
 const today = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
 const prettyDate = (d: string) =>
   new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
-const field = "w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100";
+const field =
+  "w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-sm text-neutral-100 " +
+  "placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none";
+
+const DOWNLOADS = [
+  { kind: "letter.pdf", title: "Repair notice", sub: "PDF to send your landlord", icon: "file" },
+  { kind: "complaint.pdf", title: "Code complaint", sub: "PDF for the Blacksburg inspector", icon: "shield" },
+  { kind: "deadlines.ics", title: "Deadlines", sub: "Add to your calendar", icon: "calendar" },
+] as const;
 
 export default function AdvocatePanel({ kase, onChange }: { kase: Case; onChange: (c: Case) => void }) {
   const [tenant, setTenant] = useState<TenantInfo>({
@@ -52,85 +63,92 @@ export default function AdvocatePanel({ kase, onChange }: { kase: Case; onChange
   }
 
   return (
-    <section aria-labelledby="advocate-heading" className="rounded-md border border-emerald-900 bg-emerald-950/30 p-4">
-      <h2 id="advocate-heading" className="text-lg font-semibold text-emerald-100">Advocate: your paperwork</h2>
+    <Panel agent="advocate" labelledBy="advocate-heading">
+      <SectionHeader
+        agent="advocate"
+        id="advocate-heading"
+        title="Your paperwork"
+        subtitle="Nothing is sent to anyone. You review, approve and send it yourself."
+      />
 
       {(!draft || editing) && (
-        <form onSubmit={onDraft} className="mt-3 flex flex-col gap-3">
-          <p className="text-xs text-neutral-400">
-            All optional. Used only to fill in your letter. Leave blank to fill in by hand later.
-          </p>
-          <label className="flex flex-col gap-1 text-sm">
-            Your name
-            <input className={field} value={tenant.tenant_name} onChange={set("tenant_name")} autoComplete="name" />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+        <form onSubmit={onDraft} className="flex flex-col gap-3">
+          <p className="text-xs text-neutral-400">All optional, used only to fill in your letter.</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-300">
+              Your name
+              <input className={field} value={tenant.tenant_name} onChange={set("tenant_name")} autoComplete="name" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-300">
+              Landlord or property manager
+              <input className={field} value={tenant.landlord_name} onChange={set("landlord_name")} />
+            </label>
+          </div>
+          <label className="flex flex-col gap-1 text-xs font-medium text-neutral-300">
             Unit address
             <input className={field} value={tenant.unit_address} onChange={set("unit_address")} autoComplete="street-address" />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Landlord or property manager
-            <input className={field} value={tenant.landlord_name} onChange={set("landlord_name")} />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-xs font-medium text-neutral-300">
             Date your landlord will receive the notice
             <input type="date" className={field} value={tenant.notice_date} onChange={set("notice_date")} required />
           </label>
-          <label className="flex items-start gap-2 text-sm">
+          <label className="flex items-start gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 text-sm">
             <input
               type="checkbox"
-              className="mt-1"
+              className="mt-0.5 h-4 w-4 accent-amber-400"
               checked={tenant.mode === "repair_or_terminate"}
               onChange={(e) => setTenant((t) => ({ ...t, mode: e.target.checked ? "repair_or_terminate" : "repair" }))}
             />
             <span>
               Also end my lease if repairs aren&apos;t made in 21 days
-              <span className="block text-xs text-neutral-400">
-                Adds the § 55.1-1234 termination wording. Only choose this if you&apos;re ready to move out. Talk to legal aid first.
+              <span className="mt-0.5 block text-xs text-neutral-400">
+                Adds the § 55.1-1234 termination wording. Only if you&apos;re ready to move out. Talk to legal aid first.
               </span>
             </span>
           </label>
-          <button
-            type="submit"
-            disabled={busy !== ""}
-            className="rounded-md bg-emerald-300 py-3 font-medium text-black disabled:opacity-50"
-          >
-            {busy === "drafting" ? "Advocate is drafting…" : "Draft my letter and complaint"}
-          </button>
+          <Button type="submit" accent={JUNE} disabled={busy !== ""}>
+            {busy === "drafting" ? "June is drafting…" : "Draft my letter and complaint"}
+          </Button>
         </form>
       )}
 
       {draft && !editing && (
-        <div className="mt-3 flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="letter" className="text-sm font-medium">
-              Repair notice {draft.approved ? "(approved)" : "(review and edit before approving)"}
-            </label>
+        <div className="flex flex-col gap-5">
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label htmlFor="letter" className="text-sm font-semibold text-neutral-100">
+                Repair notice
+              </label>
+              <span className="text-[11px] text-neutral-400">{draft.approved ? "Approved" : "Edit anything before approving"}</span>
+            </div>
             <textarea
               id="letter"
               value={letter}
               onChange={(e) => setLetter(e.target.value)}
               readOnly={draft.approved}
-              rows={14}
-              className={`${field} font-mono text-xs leading-relaxed`}
+              rows={13}
+              className="w-full rounded-xl border border-neutral-800 bg-[#fbfaf7] px-4 py-3 font-serif text-[13px] leading-relaxed text-neutral-900 focus:outline-none focus:ring-2"
+              style={{ ["--tw-ring-color" as string]: JUNE }}
             />
           </div>
 
           <div>
-            <h3 className="text-sm font-medium">Code complaint packet</h3>
-            <p className="mt-1 text-sm text-neutral-300">{draft.complaint.description}</p>
-            <p className="mt-1 text-xs text-neutral-400">
-              File with: {draft.complaint.to.office}, {draft.complaint.to.phone}. {draft.complaint.to.note}
+            <h3 className="text-sm font-semibold text-neutral-100">Code complaint</h3>
+            <p className="mt-1 text-sm leading-snug text-neutral-300">{draft.complaint.description}</p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-400">
+              <Icon name="phone" className="h-3.5 w-3.5" /> {draft.complaint.to.office}, {draft.complaint.to.phone}
             </p>
           </div>
 
           <div>
-            <h3 className="text-sm font-medium">Your deadlines</h3>
-            <ol className="mt-1 flex flex-col gap-2">
+            <h3 className="text-sm font-semibold text-neutral-100">Your deadlines</h3>
+            <ol className="relative mt-2 flex flex-col gap-3 border-l border-neutral-800 pl-5">
               {draft.deadlines.map((d) => (
-                <li key={d.title} className="text-sm">
-                  <span className="font-semibold text-emerald-200">{prettyDate(d.day)}</span>: {d.title}
-                  <span className="block text-xs text-neutral-400">{d.detail}</span>
+                <li key={d.title} className="relative">
+                  <span aria-hidden className="absolute -left-[1.6rem] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-neutral-950" style={{ background: JUNE }} />
+                  <p className="text-xs font-semibold" style={{ color: JUNE }}>{prettyDate(d.day)}</p>
+                  <p className="text-sm text-neutral-100">{d.title}</p>
+                  <p className="text-xs leading-snug text-neutral-400">{d.detail}</p>
                 </li>
               ))}
             </ol>
@@ -138,49 +156,58 @@ export default function AdvocatePanel({ kase, onChange }: { kase: Case; onChange
 
           {!draft.approved ? (
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-neutral-400">
-                Nothing is sent to anyone. HomeCrew never contacts your landlord or the town. You approve, download and send it yourself.
-              </p>
-              <button
-                onClick={onApprove}
-                disabled={busy !== ""}
-                className="rounded-md bg-emerald-300 py-3 font-medium text-black disabled:opacity-50"
-              >
-                {busy === "approving" ? "Approving…" : "I've reviewed this. Approve."}
-              </button>
-              <button onClick={() => setEditing(true)} disabled={busy !== ""} className="text-sm text-neutral-400 underline">
+              <Button accent={JUNE} onClick={onApprove} disabled={busy !== ""}>
+                <Icon name="check" /> {busy === "approving" ? "Approving…" : "I've reviewed this. Approve."}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(true)} disabled={busy !== ""} className="self-center text-xs">
                 Change my details
-              </button>
+              </Button>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-emerald-200">Approved. Download your files:</p>
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-medium" style={{ color: JUNE }}>
+                <Icon name="check" /> Approved. Your files are ready.
+              </p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <a href={exportUrl(kase.id, "letter.pdf")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
-                  Letter (PDF)
-                </a>
-                <a href={exportUrl(kase.id, "complaint.pdf")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
-                  Complaint (PDF)
-                </a>
-                <a href={exportUrl(kase.id, "deadlines.ics")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
-                  Deadlines (calendar)
-                </a>
+                {DOWNLOADS.map((d) => (
+                  <a
+                    key={d.kind}
+                    href={exportUrl(kase.id, d.kind)}
+                    download
+                    className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/70 p-3 transition-colors hover:border-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-black" style={{ background: JUNE }}>
+                      <Icon name={d.icon} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-neutral-100">{d.title}</span>
+                      <span className="block truncate text-[11px] text-neutral-400">{d.sub}</span>
+                    </span>
+                  </a>
+                ))}
               </div>
             </div>
           )}
 
-          <div className="rounded-md bg-black/30 p-3 text-xs text-neutral-300">
-            <p className="font-medium text-neutral-100">Free legal help</p>
+          <div className="rounded-xl border border-neutral-800 bg-black/40 p-3 text-sm">
+            <p className="font-semibold text-neutral-100">Free legal help</p>
             {draft.legal_help.map((h) => (
-              <p key={h.name}>
-                {h.name}: <a className="underline" href={`tel:${h.phone.replace(/[^0-9]/g, "")}`}>{h.phone}</a>
-              </p>
+              <a
+                key={h.name}
+                href={`tel:${h.phone.replace(/[^0-9]/g, "")}`}
+                className="mt-1.5 flex items-center justify-between gap-2 text-neutral-300 hover:text-white"
+              >
+                <span className="truncate text-xs">{h.name}</span>
+                <span className="flex shrink-0 items-center gap-1 text-xs font-semibold" style={{ color: JUNE }}>
+                  <Icon name="phone" className="h-3.5 w-3.5" /> {h.phone}
+                </span>
+              </a>
             ))}
           </div>
         </div>
       )}
 
-      {error && <p role="alert" className="mt-3 rounded-md bg-red-950 p-3 text-sm text-red-200">{error}</p>}
-    </section>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-red-950/60 p-3 text-sm text-red-200">{error}</p>}
+    </Panel>
   );
 }

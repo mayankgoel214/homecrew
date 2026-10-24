@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { getStatute, type LegalFinding, type Statute } from "@/lib/api";
+import { PERSONAS } from "@/lib/crew";
+import { Badge, Icon } from "@/components/ui";
+
+const THEO = PERSONAS.lawyer.accent;
 
 export default function StatuteCard({ finding }: { finding: LegalFinding }) {
   const [statute, setStatute] = useState<Statute | null>(null);
@@ -17,41 +21,43 @@ export default function StatuteCard({ finding }: { finding: LegalFinding }) {
   }
 
   return (
-    <div className="mt-3 rounded-md border border-sky-900 bg-sky-950/40 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded bg-sky-800 px-2 py-0.5 text-xs font-semibold text-sky-50">
-          Va. Code § {finding.statute_section}
-        </span>
-        <span className="text-xs text-sky-200">{finding.statute_title}</span>
-        {finding.is_eviction_defense && (
-          <span className="rounded bg-amber-400 px-2 py-0.5 text-xs font-semibold text-black">
-            Possible eviction defense
-          </span>
-        )}
+    <div className="mt-2 rounded-xl border border-neutral-800 bg-neutral-900/60 p-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge color={THEO}>
+          <Icon name="book" className="h-3 w-3" /> Va. Code § {finding.statute_section}
+        </Badge>
+        {finding.is_eviction_defense && <Badge color="#f5b301">Possible eviction defense</Badge>}
       </div>
-      <p className="mt-2 text-sm text-neutral-100">{finding.plain_english}</p>
-      <blockquote className="mt-2 border-l-2 border-sky-700 pl-3 text-xs italic text-neutral-300">
+      <p className="mt-1 text-xs text-neutral-400">{finding.statute_title}</p>
+
+      <p className="mt-2 text-[15px] leading-snug text-neutral-100">{finding.plain_english}</p>
+
+      <blockquote className="mt-2.5 border-l-2 pl-3 text-[13px] italic leading-snug text-neutral-300" style={{ borderColor: THEO }}>
         “{finding.statute_quote}”
-        {!finding.quote_verified && (
-          <span className="not-italic text-neutral-500"> (closest sentence in the statute)</span>
-        )}
+        {!finding.quote_verified && <span className="not-italic text-neutral-400"> (closest sentence in the statute)</span>}
       </blockquote>
-      <p className="mt-2 text-xs text-neutral-300">
-        <strong className="text-neutral-100">{finding.deadline_days}-day repair deadline.</strong>{" "}
-        {finding.deadline_basis}
-      </p>
-      {finding.defense_reason && <p className="mt-1 text-xs text-neutral-400">{finding.defense_reason}</p>}
+
+      <div className="mt-3 flex gap-2.5 rounded-lg bg-black/40 p-2.5">
+        <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg text-black" style={{ background: THEO }}>
+          <span className="text-base font-bold leading-none">{finding.deadline_days}</span>
+          <span className="text-[9px] font-semibold uppercase">days</span>
+        </div>
+        <p className="text-xs leading-snug text-neutral-300">{finding.deadline_basis}</p>
+      </div>
+
+      {finding.defense_reason && <p className="mt-2 text-xs leading-snug text-neutral-400">{finding.defense_reason}</p>}
+
       <details className="mt-2 text-xs" onToggle={onToggle}>
-        <summary className="cursor-pointer text-sky-300 underline-offset-2 hover:underline">
+        <summary className="cursor-pointer select-none font-medium underline-offset-4 hover:underline" style={{ color: THEO }}>
           Read the full statute
         </summary>
         {loadError && <p role="alert" className="mt-2 text-red-300">{loadError}</p>}
-        {!statute && !loadError && <p className="mt-2 text-neutral-500">Loading…</p>}
+        {!statute && !loadError && <p className="mt-2 text-neutral-400">Loading…</p>}
         {statute && (
-          <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded bg-black/40 p-2 text-neutral-300">
+          <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded-lg bg-black/50 p-3 leading-relaxed text-neutral-300">
             {statute.text}
             {statute.upcoming_change && <p className="mt-2 text-amber-300">{statute.upcoming_change}</p>}
-            <a href={statute.url} target="_blank" rel="noreferrer" className="mt-2 block text-sky-300 underline">
+            <a href={statute.url} target="_blank" rel="noreferrer" className="mt-2 block underline" style={{ color: THEO }}>
               Official text on law.lis.virginia.gov
             </a>
           </div>
