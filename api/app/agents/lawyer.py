@@ -10,6 +10,7 @@ quotes must appear verbatim in the statute (otherwise we substitute the closest 
 
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -126,12 +127,19 @@ def select_sections(issues: list[Issue]) -> tuple[list[str], str]:
     return sections[:MAX_LOOKUPS], model
 
 
-def analyze(issues: list[Issue]) -> LawyerResult:
+def analyze(issues: list[Issue], on_event: Callable[[str, dict], None] | None = None) -> LawyerResult:
+    """on_event("plan", {"sections"}) then on_event("lookup", {"section", "statute"}) per tool call,
+    so the crew chat can show the Lawyer working before the final answer."""
+    emit = on_event or (lambda event, data: None)
     if not issues:
         return LawyerResult(findings=[], lookups=[], model="")
 
     sections, _ = select_sections(issues)
-    statutes = {s: va_code_lookup(s) for s in sections}  # the tool calls
+    emit("plan", {"sections": sections})
+    statutes = {}
+    for s in sections:  # the tool calls
+        statutes[s] = va_code_lookup(s)
+        emit("lookup", {"section": s, "statute": statutes[s]})
     statute_block = "\n\n".join(
         f"=== § {s}: {st['title']} ===\n{st['text']}" for s, st in statutes.items()
     )

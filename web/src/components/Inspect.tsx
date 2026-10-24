@@ -6,6 +6,7 @@ import { addFrame, createCase, getCase, type Case, type Issue } from "@/lib/api"
 import EvidenceLedger from "@/components/EvidenceLedger";
 import LegalReview from "@/components/LegalReview";
 import AdvocatePanel from "@/components/AdvocatePanel";
+import CrewChat from "@/components/CrewChat";
 
 type CameraState = "off" | "starting" | "live" | "unavailable";
 type Shot = { photo: Photo; issues?: Issue[]; error?: string };
@@ -243,10 +244,12 @@ export default function Inspect() {
 
       {shot?.error && <p role="alert" className="rounded-md bg-red-950 p-3 text-sm text-red-200">{shot.error}</p>}
 
+      {kase && <CrewChat caseId={kase.id} saved={kase.chat} />}
+
       {kase && kase.frames.length > 0 && (
         <>
           <EvidenceLedger kase={kase} onChange={setKase} />
-          <LegalReview kase={kase} findingCount={findingCount} onChange={setKase} />
+          <LegalReview kase={kase} findingCount={findingCount} uploading={busy} onChange={setKase} />
           {kase.legal && kase.legal.findings.length > 0 && (
             <AdvocatePanel key={kase.legal.findings.length + kase.ledger.length} kase={kase} onChange={setKase} />
           )}

@@ -7,10 +7,12 @@ import StatuteCard from "@/components/StatuteCard";
 export default function LegalReview({
   kase,
   findingCount,
+  uploading,
   onChange,
 }: {
   kase: Case;
   findingCount: number;
+  uploading: boolean; // a photo is still being analyzed
   onChange: (c: Case) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -41,10 +43,14 @@ export default function LegalReview({
           </p>
           <button
             onClick={review}
-            disabled={busy || findingCount === 0}
+            disabled={busy || uploading || findingCount === 0}
             className="rounded-md bg-sky-300 py-3 font-medium text-black disabled:opacity-40"
           >
-            {busy ? "Lawyer is checking Virginia law…" : "Check the law for all findings"}
+            {busy
+              ? "Lawyer is checking Virginia law…"
+              : uploading
+                ? "Waiting for the Inspector…"
+                : "Check the law for all findings"}
           </button>
         </div>
       )}

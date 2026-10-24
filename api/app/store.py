@@ -51,6 +51,15 @@ class Frame(BaseModel):
     model: str
 
 
+class ChatMessage(BaseModel):
+    seq: int
+    agent: str  # inspector | lawyer | advocate | you | system
+    kind: str = "message"  # message | tool | status | error
+    text: str
+    refs: dict = {}  # e.g. {"frame_id": ...} or {"section": ...}
+    ts: str
+
+
 class Case(BaseModel):
     id: str
     created_at: str
@@ -59,6 +68,7 @@ class Case(BaseModel):
     legal: LawyerResult | None = None
     legal_refs: list[dict] = []  # flattened issue index -> {frame_id, issue_index}
     draft: Draft | None = None
+    chat: list[ChatMessage] = []
 
     def active_issues(self) -> tuple[list[Issue], list[dict]]:
         """Issues from frames still in the case, minus dismissed ones, with where each came from."""
@@ -137,6 +147,14 @@ class CaseStore:
             change(case)
             self.save(case)
             return case
+
+    def post(self, case_id: str, agent: str, text: str, kind: str = "message", refs: dict | None = None) -> None:
+        """Append a crew chat message. The SSE stream picks it up from the saved case."""
+        with self._lock:
+            case = self.get(case_id)
+            case.chat.append(ChatMessage(seq=len(case.chat), agent=agent, kind=kind, text=text,
+                                         refs=refs or {}, ts=now()))
+            self.save(case)
 
     def frame_bytes(self, case_id: str, frame_id: str) -> bytes:
         if not _ID.match(frame_id):

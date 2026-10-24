@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app import store as db
 from app.agents import advocate, lawyer
 from app.agents.inspector import InspectorResult, Issue
 from app.store import CaseStore
@@ -17,13 +18,18 @@ IMG_A, IMG_B = b"\xff\xd8fake-jpeg-A", b"\xff\xd8fake-jpeg-B"
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "store", CaseStore(tmp_path))
+    test_store = CaseStore(tmp_path)
+    monkeypatch.setattr(main, "store", test_store)
+    monkeypatch.setattr(db, "store", test_store)  # the crew posts chat through app.store
     replies = {IMG_A: [MOLD, STAIN], IMG_B: [LOCK]}
     monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
         room_guess="bathroom", issues=replies[data], model="fake"))
     seen = {}
 
-    def fake_lawyer(issues):
+    def fake_lawyer(issues, on_event=None):
+        if on_event:
+            on_event("plan", {"sections": ["55.1-1220"]})
+            on_event("lookup", {"section": "55.1-1220", "statute": {"title": "Landlord to maintain fit premises", "text": "a b c"}})
         seen["lawyer"] = [i.label for i in issues]
         return lawyer.LawyerResult(findings=[lawyer.LegalFinding(
             issue_index=n, issue_type=i.type, issue_label=i.label, statute_section="55.1-1220",
@@ -112,3 +118,45 @@ def test_phone_hash_mismatch_and_bad_ids(client):
     assert client.get("/cases/notahexid").status_code == 404
     assert client.post(f"/cases/{case_id}/lawyer").status_code == 200
     assert client.post(f"/cases/{client.post('/cases').json()['id']}/lawyer").status_code == 400
+
+
+def test_crew_chat_and_stream(client):
+    case_id = client.post("/cases").json()["id"]
+    a = upload(client, case_id, IMG_A).json()
+    client.patch(f"/cases/{case_id}/frames/{a['frame']['id']}", json={"dismissed": [1]})
+    client.post(f"/cases/{case_id}/lawyer")
+    client.post(f"/cases/{case_id}/advocate", json={})
+    client.post(f"/cases/{case_id}/approve", json={})
+    chat = client.get(f"/cases/{case_id}").json()["chat"]
+    agents = [m["agent"] for m in chat]
+    assert agents[:2] == ["inspector", "inspector"] and "you" in agents
+    assert any(m["kind"] == "tool" and "va_code_lookup" in m["text"] for m in chat)
+    assert any("@Advocate" in m["text"] for m in chat) and "Approved" in chat[-1]["text"]
+    assert [m["seq"] for m in chat] == list(range(len(chat)))
+
+    # The stream replays everything after a given id. Read just past the first two events.
+    with client.stream("GET", f"/cases/{case_id}/stream", headers={"Last-Event-ID": str(len(chat) - 3)}) as r:
+        assert r.headers["content-type"].startswith("text/event-stream")
+        ids = []
+        for line in r.iter_lines():
+            if line.startswith("id: "):
+                ids.append(int(line[4:]))
+            if len(ids) == 2:
+                break
+    assert ids == [len(chat) - 2, len(chat) - 1]
+
+
+def test_stale_review_is_discarded(client, monkeypatch):
+    case_id = client.post("/cases").json()["id"]
+    upload(client, case_id, IMG_B)
+    real = main.lawyer.analyze
+
+    def slow_lawyer(issues, on_event=None):
+        upload(client, case_id, IMG_A)  # a new photo lands while the Lawyer is working
+        return real(issues, on_event)
+
+    monkeypatch.setattr(main.lawyer, "analyze", slow_lawyer)
+    assert client.post(f"/cases/{case_id}/lawyer").status_code == 409
+    case = client.get(f"/cases/{case_id}").json()
+    assert case["legal"] is None and "discarded" in case["chat"][-1]["text"]
+    assert client.post(f"/cases/{case_id}/advocate", json={}).status_code == 409

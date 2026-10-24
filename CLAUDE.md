@@ -11,6 +11,9 @@ Phone-first website. The user points the live camera at apartment defects. Three
 - `api/data/statutes.json`: pre-cached Virginia Code sections (refresh: `cd api && uv run python scripts/cache_statutes.py`). The demo must never depend on the live statute API. Lawyer grounding is enforced in code (`api/app/agents/lawyer.py`): citations must be looked-up sections, quotes must be verbatim or get replaced by the closest real sentence, and deadlines and disclaimers come from code, not the model.
 - `api/app/store.py`: cases on local disk under `api/uploads/cases/` (gitignored), swappable for Firestore + Cloud Storage. The evidence ledger is append-only and hash-chained; "removing" a photo only excludes it from the case. Any change to evidence clears the legal review and draft (`Case.invalidate`).
 - Case API: `POST /cases`, `POST /cases/{id}/frames` (runs Inspector), `PATCH /cases/{id}/frames/{fid}` (remove / dismiss findings), `GET /cases/{id}/verify`, `POST /cases/{id}/lawyer`, `POST /cases/{id}/advocate`, `POST /cases/{id}/approve`, `GET /cases/{id}/export/{letter.pdf|complaint.pdf|deadlines.ics|evidence.json}` (all but evidence.json are 403 until approved).
+- Crew chat: agents post to `Case.chat` via `api/app/crew.py` (messages are built from agent outputs, never generated); `GET /cases/{id}/stream` is SSE, each stream closes after 25 s and the browser resumes with Last-Event-ID. API responses also carry the full chat as a fallback.
+- **Phone testing: use ngrok (`ngrok http 3000`), not a Cloudflare quick tunnel.** Quick tunnels hold SSE back until the stream closes.
+- Async endpoints must not call Gemma or the store directly (it freezes the event loop and the chat stream); use `asyncio.to_thread`.
 - `samples/`: test photos (no people, faces or addresses).
 
 ## Hard rules

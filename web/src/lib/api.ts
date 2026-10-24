@@ -1,3 +1,5 @@
+import type { ChatMessage } from "@/components/CrewChat";
+
 export type Issue = {
   type: string;
   label: string;
@@ -89,6 +91,7 @@ export type Case = {
   legal: LawyerResult | null;
   legal_refs: { frame_id: string; issue_index: number }[];
   draft: Draft | null;
+  chat: ChatMessage[];
 };
 
 export type Verification = {

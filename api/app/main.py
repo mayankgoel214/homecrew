@@ -1,8 +1,12 @@
-from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile
+import asyncio
+import json
+
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from app import exports
+from app import crew, exports
 from app.agents import advocate, lawyer
 from app.agents.inspector import inspect
 from app.config import settings
@@ -92,13 +96,21 @@ async def add_frame(
     data = await frame.read()
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(413, "Image too large (max 8 MB)")
+    photo_number = len(case.frames) + 1
+    # This endpoint is async (for the upload), so blocking work goes to a thread. Calling Gemma
+    # directly here would freeze the event loop: no chat streaming, and uploads would queue.
+    await asyncio.to_thread(crew.inspector_looking, case_id, photo_number)
     try:
-        result = inspect(data, notes=notes, mime_type=frame.content_type)
+        result = await asyncio.to_thread(inspect, data, notes, frame.content_type)
     except GemmaError as e:
+        await asyncio.to_thread(
+            store.post, case_id, "inspector", f"I couldn't analyze photo #{photo_number}: {e}", "error")
         raise HTTPException(502, str(e)) from e
-    case, added = store.add_frame(
-        case_id, data, client_sha256, captured_at[:40] or None, result.room_guess, result.issues, result.model
+    case, added = await asyncio.to_thread(
+        store.add_frame,
+        case_id, data, client_sha256, captured_at[:40] or None, result.room_guess, result.issues, result.model,
     )
+    await asyncio.to_thread(crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues)
     return {"frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump()}
 
 
@@ -121,15 +133,32 @@ def update_frame(case_id: str, frame_id: str, body: FrameUpdate) -> dict:
     """Tenant corrections: remove a photo from the case, or mark findings as not a problem.
     The ledger entry is never deleted."""
 
-    def change(case: Case):
-        f = _frame(case, frame_id)
-        if body.removed is not None:
-            f.removed = body.removed
-        if body.dismissed is not None:
-            f.dismissed = sorted({i for i in body.dismissed if 0 <= i < len(f.issues)})
-        case.invalidate()
+    said: list[str] = []
+    reset = False
 
-    return _update(case_id, change).model_dump()
+    def change(case: Case):
+        nonlocal reset
+        f = _frame(case, frame_id)
+        if body.removed is not None and body.removed != f.removed:
+            f.removed = body.removed
+            said.append(f"{'Removed' if f.removed else 'Restored'} photo #{f.seq + 1}.")
+        if body.dismissed is not None:
+            new = sorted({i for i in body.dismissed if 0 <= i < len(f.issues)})
+            for i in set(new) - set(f.dismissed):
+                said.append(f"\"{f.issues[i].label}\" in photo #{f.seq + 1} is not a problem.")
+            for i in set(f.dismissed) - set(new):
+                said.append(f"Include \"{f.issues[i].label}\" in photo #{f.seq + 1} again.")
+            f.dismissed = new
+        reset = bool(said) and (case.legal is not None or case.draft is not None)
+        if said:
+            case.invalidate()
+
+    updated = _update(case_id, change)
+    for line in said:
+        store.post(case_id, "you", line, refs={"frame_id": frame_id})
+    if reset:
+        store.post(case_id, "system", "The evidence changed, so the legal review and paperwork need to be redone.")
+    return updated.model_dump()
 
 
 @app.get("/cases/{case_id}/verify")
@@ -147,15 +176,30 @@ def case_lawyer(case_id: str) -> dict:
         raise HTTPException(400, "No findings in this case yet")
     if len(issues) > MAX_ISSUES:
         raise HTTPException(413, f"Too many findings ({len(issues)}); dismiss some (max {MAX_ISSUES})")
+    store.post(case_id, "lawyer", f"Reviewing {len(issues)} finding{'s' if len(issues) != 1 else ''}…", kind="status")
     try:
-        result = lawyer.analyze(issues)
+        result = lawyer.analyze(issues, on_event=crew.lawyer_event(case_id))
     except GemmaError as e:
+        store.post(case_id, "lawyer", f"I couldn't finish the legal review: {e}", kind="error")
         raise HTTPException(502, str(e)) from e
 
+    stale = False
+
     def change(case: Case):
+        nonlocal stale
+        # Photos may have been added or findings dismissed while Gemma was working. Saving this
+        # review would then pair the wrong findings with the wrong statutes, so drop it.
+        if case.active_issues()[1] != refs:
+            stale = True
+            return
         case.legal, case.legal_refs, case.draft = result, refs, None
 
-    return _update(case_id, change).model_dump()
+    _update(case_id, change)
+    if stale:
+        store.post(case_id, "system", "The evidence changed during the legal review, so it was discarded. Run it again.")
+        raise HTTPException(409, "The evidence changed during the review. Please run it again.")
+    crew.lawyer_report(case_id, result)
+    return _case(case_id).model_dump()
 
 
 @app.post("/cases/{case_id}/advocate")
@@ -163,16 +207,22 @@ def case_advocate(case_id: str, tenant: advocate.TenantInfo) -> dict:
     case = _case(case_id)
     if not case.legal:
         raise HTTPException(409, "Run the legal review first")
-    issues, _ = case.active_issues()
+    issues, refs = case.active_issues()
+    if refs != case.legal_refs:
+        raise HTTPException(409, "The evidence changed since the legal review. Run it again.")
+    store.post(case_id, "advocate", "Drafting your letter and complaint…", kind="status")
     try:
         result = advocate.draft(issues, case.legal.findings, tenant)
     except GemmaError as e:
+        store.post(case_id, "advocate", f"I couldn't draft the paperwork: {e}", kind="error")
         raise HTTPException(502, str(e)) from e
 
     def change(c: Case):
         c.draft = result
 
-    return _update(case_id, change).model_dump()
+    _update(case_id, change)
+    crew.advocate_report(case_id, result)
+    return _case(case_id).model_dump()
 
 
 class ApproveRequest(BaseModel):
@@ -189,7 +239,9 @@ def case_approve(case_id: str, body: ApproveRequest) -> dict:
         case.draft.approved = True
         case.draft.approved_at = now()
 
-    return _update(case_id, change).model_dump()
+    _update(case_id, change)
+    crew.approved(case_id)
+    return _case(case_id).model_dump()
 
 
 EXPORTS = {
@@ -216,3 +268,43 @@ def case_export(case_id: str, kind: str) -> Response:
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="homecrew-{kind}"'},
     )
+
+
+# ---- crew chat stream ------------------------------------------------------------------------
+
+STREAM_POLL_SECONDS = 0.4
+HEARTBEAT_SECONDS = 15
+# Each stream ends after this long and the browser reconnects (EventSource does it on its own,
+# resuming from Last-Event-ID). Without it, server reloads hang on open streams and hosting
+# platforms cut long requests anyway.
+STREAM_MAX_SECONDS = 25
+
+
+@app.get("/cases/{case_id}/stream")
+async def stream(case_id: str, request: Request, after: int = -1) -> StreamingResponse:
+    """Server-Sent Events: every crew chat message, then new ones as agents post them.
+    Reconnecting browsers send Last-Event-ID, so nothing is shown twice."""
+    _case(case_id)
+    last = int(request.headers.get("last-event-id", after))
+
+    async def events():
+        nonlocal last
+        quiet, waited = 0.0, 0.0
+        yield "retry: 1000\n\n"
+        while waited < STREAM_MAX_SECONDS and not await request.is_disconnected():
+            case = await asyncio.to_thread(store.get, case_id)
+            fresh = [m for m in case.chat if m.seq > last]
+            for m in fresh:
+                last = m.seq
+                yield f"id: {m.seq}\nevent: chat\ndata: {json.dumps(m.model_dump())}\n\n"
+            quiet = 0.0 if fresh else quiet + STREAM_POLL_SECONDS
+            if quiet >= HEARTBEAT_SECONDS:
+                quiet = 0.0
+                yield ": keep-alive\n\n"
+            await asyncio.sleep(STREAM_POLL_SECONDS)
+            waited += STREAM_POLL_SECONDS
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+    })
