@@ -1,12 +1,9 @@
 from datetime import date
 
-from fastapi.testclient import TestClient
-
 from app import exports
 from app.agents import advocate
 from app.agents.inspector import Issue
 from app.agents.lawyer import LegalFinding
-from app.main import app
 
 NOTICE = date(2026, 10, 26)
 ISSUES = [
@@ -53,26 +50,6 @@ def test_letter_modes(monkeypatch):
     assert "Sam Lee" in repair.letter_text and "[" not in repair.letter_text
     end = advocate.draft(ISSUES, FINDINGS, advocate.TenantInfo(notice_date=NOTICE, mode="repair_or_terminate"))
     assert "will terminate on November 25, 2026" in end.letter_text
-
-
-def test_approve_gates_export(monkeypatch):
-    fake_gemma(monkeypatch)
-    client = TestClient(app)
-    body = {"issues": [i.model_dump() for i in ISSUES], "findings": [f.model_dump() for f in FINDINGS],
-            "tenant": {"notice_date": "2026-10-26"}}
-    draft = client.post("/advocate", json=body).json()
-    assert draft["approved"] is False
-    assert client.get(f"/advocate/{draft['id']}/export/letter.pdf").status_code == 403
-
-    approved = client.post(f"/advocate/{draft['id']}/approve", json={"letter_text": "My edited letter § 55.1-1220"}).json()
-    assert approved["approved"] is True and approved["letter_text"] == "My edited letter § 55.1-1220"
-    pdf = client.get(f"/advocate/{draft['id']}/export/letter.pdf")
-    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
-    assert client.get(f"/advocate/{draft['id']}/export/complaint.pdf").content.startswith(b"%PDF")
-    ics = client.get(f"/advocate/{draft['id']}/export/deadlines.ics").text
-    assert ics.startswith("BEGIN:VCALENDAR") and "DTSTART;VALUE=DATE:20261116" in ics
-    assert client.get(f"/advocate/{draft['id']}/export/nope").status_code == 404
-    assert client.get("/advocate/missing/export/letter.pdf").status_code == 404
 
 
 def test_ics_escaping_and_folding():

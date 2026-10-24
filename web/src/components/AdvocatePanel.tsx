@@ -1,15 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  approveDraft,
-  draftPaperwork,
-  exportUrl,
-  type Draft,
-  type Issue,
-  type LegalFinding,
-  type TenantInfo,
-} from "@/lib/api";
+import { approveDraft, exportUrl, runAdvocate, type Case, type TenantInfo } from "@/lib/api";
 
 const today = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
 const prettyDate = (d: string) =>
@@ -17,12 +9,13 @@ const prettyDate = (d: string) =>
 
 const field = "w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100";
 
-export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; findings: LegalFinding[] }) {
+export default function AdvocatePanel({ kase, onChange }: { kase: Case; onChange: (c: Case) => void }) {
   const [tenant, setTenant] = useState<TenantInfo>({
     tenant_name: "", unit_address: "", landlord_name: "", notice_date: today(), mode: "repair", notes: "",
   });
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [letter, setLetter] = useState("");
+  const draft = kase.draft;
+  const [editing, setEditing] = useState(false); // back to the details form
+  const [letter, setLetter] = useState(draft?.letter_text ?? "");
   const [busy, setBusy] = useState<"" | "drafting" | "approving">("");
   const [error, setError] = useState("");
 
@@ -34,9 +27,10 @@ export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; f
     setBusy("drafting");
     setError("");
     try {
-      const d = await draftPaperwork(issues, findings, tenant);
-      setDraft(d);
-      setLetter(d.letter_text);
+      const updated = await runAdvocate(kase.id, tenant);
+      onChange(updated);
+      setLetter(updated.draft?.letter_text ?? "");
+      setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Advocate failed");
     } finally {
@@ -49,7 +43,7 @@ export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; f
     setBusy("approving");
     setError("");
     try {
-      setDraft(await approveDraft(draft.id, letter));
+      onChange(await approveDraft(kase.id, letter));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Approve failed");
     } finally {
@@ -61,7 +55,7 @@ export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; f
     <section aria-labelledby="advocate-heading" className="rounded-md border border-emerald-900 bg-emerald-950/30 p-4">
       <h2 id="advocate-heading" className="text-lg font-semibold text-emerald-100">Advocate: your paperwork</h2>
 
-      {!draft && (
+      {(!draft || editing) && (
         <form onSubmit={onDraft} className="mt-3 flex flex-col gap-3">
           <p className="text-xs text-neutral-400">
             All optional. Used only to fill in your letter. Leave blank to fill in by hand later.
@@ -106,7 +100,7 @@ export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; f
         </form>
       )}
 
-      {draft && (
+      {draft && !editing && (
         <div className="mt-3 flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label htmlFor="letter" className="text-sm font-medium">
@@ -154,7 +148,7 @@ export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; f
               >
                 {busy === "approving" ? "Approving…" : "I've reviewed this. Approve."}
               </button>
-              <button onClick={() => setDraft(null)} disabled={busy !== ""} className="text-sm text-neutral-400 underline">
+              <button onClick={() => setEditing(true)} disabled={busy !== ""} className="text-sm text-neutral-400 underline">
                 Change my details
               </button>
             </div>
@@ -162,13 +156,13 @@ export default function AdvocatePanel({ issues, findings }: { issues: Issue[]; f
             <div className="flex flex-col gap-2">
               <p className="text-sm text-emerald-200">Approved. Download your files:</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <a href={exportUrl(draft.id, "letter.pdf")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
+                <a href={exportUrl(kase.id, "letter.pdf")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
                   Letter (PDF)
                 </a>
-                <a href={exportUrl(draft.id, "complaint.pdf")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
+                <a href={exportUrl(kase.id, "complaint.pdf")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
                   Complaint (PDF)
                 </a>
-                <a href={exportUrl(draft.id, "deadlines.ics")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
+                <a href={exportUrl(kase.id, "deadlines.ics")} download className="rounded-md bg-white py-2 text-center text-sm font-medium text-black">
                   Deadlines (calendar)
                 </a>
               </div>

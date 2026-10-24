@@ -1,0 +1,114 @@
+import hashlib
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app import main
+from app.agents import advocate, lawyer
+from app.agents.inspector import InspectorResult, Issue
+from app.store import CaseStore
+
+MOLD = Issue(type="mold", label="mold", severity=4, confidence=0.95, evidence_note="Mold on ceiling.")
+STAIN = Issue(type="water_damage", label="stain", severity=2, confidence=0.8, evidence_note="Stain on wall.")
+LOCK = Issue(type="broken_lock", label="broken lock", severity=4, confidence=0.9, evidence_note="Lock is broken.")
+IMG_A, IMG_B = b"\xff\xd8fake-jpeg-A", b"\xff\xd8fake-jpeg-B"
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "store", CaseStore(tmp_path))
+    replies = {IMG_A: [MOLD, STAIN], IMG_B: [LOCK]}
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
+        room_guess="bathroom", issues=replies[data], model="fake"))
+    seen = {}
+
+    def fake_lawyer(issues):
+        seen["lawyer"] = [i.label for i in issues]
+        return lawyer.LawyerResult(findings=[lawyer.LegalFinding(
+            issue_index=n, issue_type=i.type, issue_label=i.label, statute_section="55.1-1220",
+            statute_title="Landlord to maintain fit premises", statute_url="u", plain_english="Fix it.",
+            statute_quote="q", quote_verified=True, is_eviction_defense=False, defense_reason="")
+            for n, i in enumerate(issues)], lookups=["55.1-1220"], model="fake")
+
+    monkeypatch.setattr(main.lawyer, "analyze", fake_lawyer)
+    monkeypatch.setattr(advocate, "generate_json", lambda *a, **k: ({"paragraphs": [], "complaint_description": "d"}, "fake"))
+    c = TestClient(main.app)
+    c.seen = seen
+    return c
+
+
+def upload(client, case_id, img):
+    sha = hashlib.sha256(img).hexdigest()
+    return client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", img, "image/jpeg")},
+                       data={"client_sha256": sha, "captured_at": "2026-10-24T14:00:00-04:00"})
+
+
+def test_full_case_flow(client):
+    case_id = client.post("/cases").json()["id"]
+    a = upload(client, case_id, IMG_A).json()
+    b = upload(client, case_id, IMG_B).json()
+    assert a["ledger_entry"]["prev_hash"] == "0" * 64
+    assert b["ledger_entry"]["prev_hash"] == a["ledger_entry"]["entry_hash"]
+    assert client.get(f"/cases/{case_id}/frames/{a['frame']['id']}/image").content == IMG_A
+
+    verify = client.get(f"/cases/{case_id}/verify").json()
+    assert verify["all_ok"] and len(verify["entries"]) == 2
+
+    # Tenant says the stain isn't a problem: Lawyer only sees the rest, across both photos.
+    client.patch(f"/cases/{case_id}/frames/{a['frame']['id']}", json={"dismissed": [1]})
+    legal = client.post(f"/cases/{case_id}/lawyer").json()
+    assert client.seen["lawyer"] == ["mold", "broken lock"]
+    assert legal["legal_refs"][1]["frame_id"] == b["frame"]["id"]
+
+    assert client.get(f"/cases/{case_id}/export/letter.pdf").status_code == 403
+    draft = client.post(f"/cases/{case_id}/advocate", json={"notice_date": "2026-10-26"}).json()["draft"]
+    assert "Mold on ceiling." in draft["letter_text"] and "Lock is broken." in draft["letter_text"]
+    assert client.get(f"/cases/{case_id}/export/letter.pdf").status_code == 403
+    client.post(f"/cases/{case_id}/approve", json={})
+    assert client.get(f"/cases/{case_id}/export/letter.pdf").content.startswith(b"%PDF")
+
+    # New evidence invalidates the old review and paperwork.
+    upload(client, case_id, IMG_B)
+    case = client.get(f"/cases/{case_id}").json()
+    assert case["legal"] is None and case["draft"] is None
+    assert client.get(f"/cases/{case_id}/export/letter.pdf").status_code == 403
+
+
+def test_remove_keeps_ledger_and_excludes_issues(client):
+    case_id = client.post("/cases").json()["id"]
+    a = upload(client, case_id, IMG_A).json()
+    upload(client, case_id, IMG_B)
+    client.patch(f"/cases/{case_id}/frames/{a['frame']['id']}", json={"removed": True})
+    client.post(f"/cases/{case_id}/lawyer")
+    assert client.seen["lawyer"] == ["broken lock"]
+    assert len(client.get(f"/cases/{case_id}").json()["ledger"]) == 2
+    evidence = json.loads(client.get(f"/cases/{case_id}/export/evidence.json").text)
+    assert evidence["ledger"][0]["removed"] is True and evidence["verification"]["all_ok"]
+
+
+def test_tampering_is_detected(client, tmp_path):
+    case_id = client.post("/cases").json()["id"]
+    a = upload(client, case_id, IMG_A).json()
+    upload(client, case_id, IMG_B)
+    (tmp_path / case_id / "frames" / f"{a['frame']['id']}.jpg").write_bytes(b"edited photo")
+    v = client.get(f"/cases/{case_id}/verify").json()
+    assert v["all_ok"] is False and v["entries"][0]["image_matches"] is False
+
+    path = tmp_path / case_id / "case.json"
+    data = json.loads(path.read_text())
+    data["ledger"][0]["received_at"] = "2020-01-01T00:00:00+00:00"  # backdate an entry
+    path.write_text(json.dumps(data))
+    v = client.get(f"/cases/{case_id}/verify").json()
+    assert [e["chain_ok"] for e in v["entries"]] == [False, False]
+
+
+def test_phone_hash_mismatch_and_bad_ids(client):
+    case_id = client.post("/cases").json()["id"]
+    client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_A, "image/jpeg")},
+                data={"client_sha256": "deadbeef"})
+    assert client.get(f"/cases/{case_id}/verify").json()["entries"][0]["matches_phone_hash"] is False
+    assert client.get("/cases/../../etc/verify").status_code == 404
+    assert client.get("/cases/notahexid").status_code == 404
+    assert client.post(f"/cases/{case_id}/lawyer").status_code == 200
+    assert client.post(f"/cases/{client.post('/cases').json()['id']}/lawyer").status_code == 400

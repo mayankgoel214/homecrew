@@ -1,21 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { frameFromFile, frameFromVideo, type Frame } from "@/lib/frame";
-import { inspectFrame, lawyerReview, type InspectResult, type Issue, type LawyerResult } from "@/lib/api";
-import StatuteCard from "@/components/StatuteCard";
+import { frameFromFile, frameFromVideo, type Frame as Photo } from "@/lib/frame";
+import { addFrame, createCase, getCase, type Case, type Issue } from "@/lib/api";
+import EvidenceLedger from "@/components/EvidenceLedger";
+import LegalReview from "@/components/LegalReview";
 import AdvocatePanel from "@/components/AdvocatePanel";
 
 type CameraState = "off" | "starting" | "live" | "unavailable";
-type Shot = {
-  frame: Frame;
-  result?: InspectResult;
-  error?: string;
-  legal?: LawyerResult;
-  legalError?: string;
-  legalBusy?: boolean;
-};
+type Shot = { photo: Photo; issues?: Issue[]; error?: string };
 
+const CASE_KEY = "homecrew.caseId";
 const SEVERITY_COLOR = ["", "#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
 const REGION_CELL: Record<string, [number, number]> = {
   "top-left": [0, 0], top: [1, 0], "top-right": [2, 0],
@@ -30,6 +25,22 @@ function boxFor(issue: Issue): [number, number, number, number] {
   return [cx / 3, cy / 3, 1 / 3, 1 / 3];
 }
 
+// Remembering the case id lets a refresh pick up where you left off. Storage can be blocked
+// (private mode), so every access is wrapped.
+const savedCaseId = () => {
+  try {
+    return localStorage.getItem(CASE_KEY);
+  } catch {
+    return null;
+  }
+};
+const saveCaseId = (id: string | null) => {
+  try {
+    if (id) localStorage.setItem(CASE_KEY, id);
+    else localStorage.removeItem(CASE_KEY);
+  } catch {}
+};
+
 export default function Inspect() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -38,8 +49,22 @@ export default function Inspect() {
   const [cameraError, setCameraError] = useState("");
   const [shot, setShot] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
+  const [kase, setKase] = useState<Case | null>(null);
 
   useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
+
+  useEffect(() => {
+    const id = savedCaseId();
+    if (id) getCase(id).then(setKase).catch(() => saveCaseId(null));
+  }, []);
+
+  async function ensureCase(): Promise<Case> {
+    if (kase) return kase;
+    const created = await createCase();
+    saveCaseId(created.id);
+    setKase(created);
+    return created;
+  }
 
   async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -73,29 +98,18 @@ export default function Inspect() {
     }
   }
 
-  async function analyze(frame: Frame) {
-    setShot({ frame });
+  async function analyze(photo: Photo) {
+    setShot({ photo });
     setBusy(true);
-    let result: InspectResult;
     try {
-      result = await inspectFrame(frame.blob, frame.sha256);
+      const c = await ensureCase();
+      const { frame } = await addFrame(c.id, photo.blob, photo.sha256);
+      setShot({ photo, issues: frame.issues });
+      setKase(await getCase(c.id));
     } catch (e) {
-      setShot({ frame, error: e instanceof Error ? e.message : "Something went wrong" });
+      setShot({ photo, error: e instanceof Error ? e.message : "Something went wrong" });
+    } finally {
       setBusy(false);
-      return;
-    }
-    setBusy(false);
-    if (!result.issues.length) {
-      setShot({ frame, result });
-      return;
-    }
-    // Only apply the Lawyer's answer if the user is still looking at this frame.
-    const update = (patch: Partial<Shot>) => setShot((s) => (s?.frame === frame ? { ...s, ...patch } : s));
-    setShot({ frame, result, legalBusy: true });
-    try {
-      update({ legal: await lawyerReview(result.issues), legalBusy: false });
-    } catch (e) {
-      update({ legalError: e instanceof Error ? e.message : "Lawyer failed", legalBusy: false });
     }
   }
 
@@ -109,13 +123,31 @@ export default function Inspect() {
     if (file) await analyze(await frameFromFile(file));
   }
 
-  const issues = shot?.result?.issues ?? [];
+  function newCase() {
+    if (kase?.frames.length && !confirm("Start a new case? This one stays saved on the server, but this page will forget it.")) return;
+    saveCaseId(null);
+    setKase(null);
+    setShot(null);
+  }
+
+  const issues = shot?.issues ?? [];
+  const activeFrames = kase?.frames.filter((f) => !f.removed) ?? [];
+  const findingCount = activeFrames.reduce((n, f) => n + f.issues.length - f.dismissed.length, 0);
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6">
-      <header>
-        <h1 className="text-2xl font-semibold">HomeCrew Inspector</h1>
-        <p className="text-sm text-neutral-400">Point at a repair problem and tap Capture.</p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">HomeCrew</h1>
+          <p className="text-sm text-neutral-400">
+            Photograph each problem. Add as many photos as you need, then check the law.
+          </p>
+        </div>
+        {kase && (
+          <button onClick={newCase} className="shrink-0 text-xs text-neutral-400 underline">
+            New case
+          </button>
+        )}
       </header>
 
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-900">
@@ -132,14 +164,14 @@ export default function Inspect() {
             <div
               className="relative"
               style={{
-                aspectRatio: `${shot.frame.width} / ${shot.frame.height}`,
-                ...(shot.frame.width / shot.frame.height < 3 / 4 ? { height: "100%" } : { width: "100%" }),
+                aspectRatio: `${shot.photo.width} / ${shot.photo.height}`,
+                ...(shot.photo.width / shot.photo.height < 3 / 4 ? { height: "100%" } : { width: "100%" }),
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={shot.frame.url}
-                alt={issues.length ? `Captured frame with ${issues.length} marked issue(s)` : "Captured frame"}
+                src={shot.photo.url}
+                alt={issues.length ? `Captured photo with ${issues.length} marked issue(s)` : "Captured photo"}
                 className="h-full w-full"
               />
               {issues.map((issue, i) => {
@@ -182,12 +214,21 @@ export default function Inspect() {
             Inspector is looking…
           </div>
         )}
+        {shot && !busy && (
+          <div role="status" className="absolute inset-x-0 bottom-0 bg-black/70 p-3 text-center text-sm">
+            {shot.error
+              ? "Couldn't analyze this photo."
+              : issues.length
+                ? `Found ${issues.length} issue${issues.length > 1 ? "s" : ""}. Added to your evidence.`
+                : "No visible problems. Saved to your evidence."}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">
         {shot ? (
           <button onClick={() => setShot(null)} disabled={busy} className="flex-1 rounded-md bg-white py-3 font-medium text-black disabled:opacity-50">
-            {camera === "live" ? "Back to camera" : "Clear"}
+            {camera === "live" ? "Next photo" : "Done"}
           </button>
         ) : (
           <button onClick={capture} disabled={camera !== "live" || busy} className="flex-1 rounded-md bg-white py-3 font-medium text-black disabled:opacity-40">
@@ -202,44 +243,14 @@ export default function Inspect() {
 
       {shot?.error && <p role="alert" className="rounded-md bg-red-950 p-3 text-sm text-red-200">{shot.error}</p>}
 
-      {shot?.result && (
-        <section aria-label="Inspector findings" className="flex flex-col gap-2">
-          {issues.length === 0 && <p className="text-sm text-neutral-300">No visible defects in this frame.</p>}
-          {issues.map((issue, i) => (
-            <article key={i} className="rounded-md border border-neutral-700 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-medium">{issue.label}</h2>
-                <span className="text-xs text-neutral-400">
-                  severity {issue.severity}/5 · {Math.round(issue.confidence * 100)}% sure
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-neutral-300">{issue.evidence_note}</p>
-              {issue.needs_human_check && <p className="mt-1 text-xs text-amber-300">Needs a human check: low confidence</p>}
-              {!issue.bbox && <p className="mt-1 text-xs text-neutral-500">Approximate area (no exact box)</p>}
-              {shot.legal?.findings
-                .filter((f) => f.issue_index === i)
-                .map((f) => <StatuteCard key={f.statute_section} finding={f} />)}
-            </article>
-          ))}
-          {shot.legalBusy && (
-            <p role="status" className="text-sm text-sky-300">Lawyer is checking Virginia law…</p>
+      {kase && kase.frames.length > 0 && (
+        <>
+          <EvidenceLedger kase={kase} onChange={setKase} />
+          <LegalReview kase={kase} findingCount={findingCount} onChange={setKase} />
+          {kase.legal && kase.legal.findings.length > 0 && (
+            <AdvocatePanel key={kase.legal.findings.length + kase.ledger.length} kase={kase} onChange={setKase} />
           )}
-          {shot.legalError && (
-            <p role="alert" className="rounded-md bg-red-950 p-3 text-sm text-red-200">{shot.legalError}</p>
-          )}
-          {shot.legal && (
-            <p className="text-xs text-neutral-400">
-              Looked up {shot.legal.lookups.map((s) => `§ ${s}`).join(", ")}. {shot.legal.disclaimer}
-            </p>
-          )}
-          {shot.legal && shot.legal.findings.length > 0 && (
-            <AdvocatePanel key={shot.frame.sha256} issues={issues} findings={shot.legal.findings} />
-          )}
-          <p className="break-all text-xs text-neutral-500">
-            {shot.result.model} · SHA-256 {shot.result.sha256.slice(0, 16)}… ·{" "}
-            {shot.result.hash_match ? "hash verified on server" : "hash mismatch"}
-          </p>
-        </section>
+        </>
       )}
     </div>
   );

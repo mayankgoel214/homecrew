@@ -9,6 +9,8 @@ Phone-first website. The user points the live camera at apartment defects. Three
 - `web/`: Next.js 15 App Router, TypeScript, Tailwind. Runs in the phone's browser. Deployed to Vercel (HTTPS is required for the camera).
 - `api/`: FastAPI (Python 3.12, uv). Agents, orchestrator, exports. Deployed to Cloud Run. Run: `cd api && uv run uvicorn app.main:app --reload --port 8000`. Test: `uv run pytest -q`.
 - `api/data/statutes.json`: pre-cached Virginia Code sections (refresh: `cd api && uv run python scripts/cache_statutes.py`). The demo must never depend on the live statute API. Lawyer grounding is enforced in code (`api/app/agents/lawyer.py`): citations must be looked-up sections, quotes must be verbatim or get replaced by the closest real sentence, and deadlines and disclaimers come from code, not the model.
+- `api/app/store.py`: cases on local disk under `api/uploads/cases/` (gitignored), swappable for Firestore + Cloud Storage. The evidence ledger is append-only and hash-chained; "removing" a photo only excludes it from the case. Any change to evidence clears the legal review and draft (`Case.invalidate`).
+- Case API: `POST /cases`, `POST /cases/{id}/frames` (runs Inspector), `PATCH /cases/{id}/frames/{fid}` (remove / dismiss findings), `GET /cases/{id}/verify`, `POST /cases/{id}/lawyer`, `POST /cases/{id}/advocate`, `POST /cases/{id}/approve`, `GET /cases/{id}/export/{letter.pdf|complaint.pdf|deadlines.ics|evidence.json}` (all but evidence.json are 403 until approved).
 - `samples/`: test photos (no people, faces or addresses).
 
 ## Hard rules
