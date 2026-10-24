@@ -144,8 +144,10 @@ export function addFrame(caseId: string, blob: Blob, sha256: string, live = fals
 export const updateFrame = (caseId: string, frameId: string, patch: { removed?: boolean; dismissed?: number[] }) =>
   call<Case>(`/api/cases/${caseId}/frames/${frameId}`, json("PATCH", patch), "Updating the photo");
 
-export const startCall = (caseId: string, trade: string, renter: boolean) =>
-  call<{ ok: boolean }>(`/api/cases/${caseId}/call/start`, json("POST", { trade, renter }), "Starting the call");
+export const startCall = (caseId: string, trade: string, renter: boolean, problem = "") =>
+  call<{ ok: boolean }>(`/api/cases/${caseId}/call/start`, json("POST", { trade, renter, problem }), "Starting the call");
+export const routeProblem = (text: string) =>
+  call<{ trade?: string; name?: string; role?: string; emergency?: string }>("/api/route", json("POST", { text }), "Routing");
 export const endCall = (caseId: string) =>
   call<{ findings: number; renter: boolean }>(`/api/cases/${caseId}/call/end`, { method: "POST" }, "Ending the call");
 export const askExpert = (caseId: string, text: string) =>

@@ -15,6 +15,14 @@ export type Source = "camera" | "demo";
 type Snapshot = { photo: Photo; issues: Issue[]; id: number };
 
 const SEVERITY = ["", "#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
+
+// If it's audible, the screen shouldn't repeat all of it: show the first sentence or two.
+function caption(text: string): string {
+  const clean = namedMentions(text).replace(/\s*@\w+\s*$/, "").trim();
+  const m = clean.match(/^(.+?[.!?])\s+(.+?[.!?])?/);
+  const short = m ? (m[1].length < 60 && m[2] ? `${m[1]} ${m[2]}` : m[1]) : clean;
+  return short.length > 140 ? short.slice(0, 137).trimEnd() + "…" : short;
+}
 const CHECK_EVERY_MS = 600;
 const SNAPSHOT_MS = 6500;
 
@@ -368,7 +376,7 @@ export default function CallScreen({
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: speaker?.accent ?? "#d4d4d4" }}>
               {speaker ? speaker.name : current.agent === "you" ? "You" : "HomeCrew"}
             </p>
-            <p className="mt-0.5 line-clamp-4 text-[17px] font-medium leading-snug">{namedMentions(current.text).replace(/\s*@\w+\s*$/, "")}</p>
+            <p className="mt-0.5 line-clamp-2 text-[17px] font-medium leading-snug">{caption(current.text)}</p>
           </div>
         ) : (
           <p className="rounded-2xl bg-black/45 px-4 py-3 text-sm text-white/80 backdrop-blur-md">

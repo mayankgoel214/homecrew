@@ -56,3 +56,18 @@ def test_ask_guardrails(tmp_path, monkeypatch):
     assert ok["answer"] == "Open a window and run the fan." and "Marco" in calls[0]
     chat = c.get(f"/cases/{cid}").json()["chat"]
     assert any(m["kind"] == "emergency" for m in chat)
+
+
+def test_route():
+    from app import trades
+    assert trades.route("my sink isn't draining").id == "plumber"
+    assert trades.route("the outlet sparks when I plug in").id == "electrician"
+    assert trades.route("no heat in the bedroom").id == "hvac"
+    assert trades.route("mice in the kitchen").id == "pest"
+    assert trades.route("front door lock is broken").id == "locks"
+    assert trades.route("black spots on the bathroom ceiling").id == "mold"
+    assert trades.route("no hot water in the shower").id == "plumber"
+    assert trades.route("something feels off").id == "general"
+    c = TestClient(main.app)
+    assert c.post("/route", json={"text": "I smell gas"}).json()["emergency"] == "gas"
+    assert c.post("/route", json={"text": "toilet keeps running"}).json()["trade"] == "plumber"

@@ -131,7 +131,7 @@ def test_crew_chat_and_stream(client):
     agents = [m["agent"] for m in chat]
     assert agents[:2] == ["inspector", "inspector"] and "you" in agents
     assert any(m["kind"] == "tool" and "va_code_lookup" in m["text"] for m in chat)
-    assert any("@Advocate" in m["text"] for m in chat) and "Approved" in chat[-1]["text"]
+    assert "Approved" in chat[-1]["text"]
     assert [m["seq"] for m in chat] == list(range(len(chat)))
 
     # The stream replays everything after a given id. Read just past the first two events.
@@ -179,4 +179,4 @@ def test_live_frames_skip_clean_and_duplicates(client, monkeypatch):
     case = client.get(f"/cases/{case_id}").json()
     assert len(case["ledger"]) == 1
     agents = [m["agent"] for m in case["chat"]]
-    assert "lawyer" in agents and "advocate" in agents  # Theo and June chime in on the live finding
+    assert agents.count("lawyer") == 1 and "advocate" not in agents  # Theo once per problem; June waits for the end

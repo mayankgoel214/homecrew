@@ -5,7 +5,8 @@ import { createCase, endCall, getCase, startCall, type Case } from "@/lib/api";
 import { PERSONAS, applyTrade, browserVoice, cartesiaVoice, isAgent, namedMentions, silentVoice, unlockAudio, type TradeId } from "@/lib/crew";
 import { useCrewMessages } from "@/hooks/useCrewMessages";
 import { useCrewPlayback } from "@/hooks/useCrewPlayback";
-import Lobby from "@/components/call/Lobby";
+import Lobby, { type StartOptions } from "@/components/call/Lobby";
+import CaseSummary from "@/components/CaseSummary";
 import CallScreen, { type Source } from "@/components/call/CallScreen";
 import EvidenceLedger from "@/components/EvidenceLedger";
 import LegalReview from "@/components/LegalReview";
@@ -67,7 +68,8 @@ export default function HomeCrewApp() {
   const { messages } = useCrewMessages(kase?.id ?? null, kase?.chat ?? NO_CHAT);
   const playback = useCrewPlayback(messages, historyUpTo.current, voice);
 
-  async function start(src: Source, t: TradeId = trade, rent: boolean = renter) {
+  async function start(o: StartOptions) {
+    const { source: src, trade: t, renter: rent, problem = "" } = o;
     unlockAudio(); // must happen inside this tap for iPhones to allow sound
     applyTrade(t);
     setTrade(t);
@@ -84,7 +86,7 @@ export default function HomeCrewApp() {
       setSource(src);
       setStartedAt(Date.now());
       setView("call");
-      await startCall(c.id, t, rent); // the expert says hello
+      await startCall(c.id, t, rent, problem); // the expert says hello
     } catch (e) {
       alert(e instanceof Error ? e.message : "Couldn't start the call");
     } finally {
@@ -149,7 +151,7 @@ export default function HomeCrewApp() {
           className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/90 px-4 py-3 backdrop-blur"
           style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
         >
-          <button onClick={() => start(source)} className="flex items-center gap-1.5 rounded-full bg-[#34c759] px-3 py-1.5 text-xs font-bold text-black">
+          <button onClick={() => start({ source, trade, renter })} className="flex items-center gap-1.5 rounded-full bg-[#34c759] px-3 py-1.5 text-xs font-bold text-black">
             <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
               <path d="M15 8.5V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1.5l5 3.5V5z" fill="currentColor" />
             </svg>
@@ -166,6 +168,7 @@ export default function HomeCrewApp() {
             </p>
           ) : (
             <>
+              <CaseSummary kase={kase} />
               <SafetyPlan kase={kase} />
               {renter && (
                 <>
@@ -179,7 +182,7 @@ export default function HomeCrewApp() {
             </>
           )}
           <details className="rounded-2xl border border-neutral-800 p-4 text-sm">
-            <summary className="cursor-pointer font-semibold">Call transcript</summary>
+            <summary className="cursor-pointer font-semibold">What the crew said</summary>
             <div className="mt-3">
               <Transcript messages={messages} />
             </div>

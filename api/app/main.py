@@ -153,7 +153,7 @@ async def add_frame(
         crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues, result.say)
     if live and result.issues and case.renter:
         await asyncio.to_thread(crew.lawyer_quick_take, case_id, result.issues)
-    if live:
+    if live and not result.issues:
         await asyncio.to_thread(_next_checklist_item, case_id)
     return {"kept": True, "frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump(),
             "issues": [i.model_dump() for i in result.issues], "say": result.say}
@@ -199,6 +199,7 @@ def _next_checklist_item(case_id: str) -> None:
 class CallStart(BaseModel):
     trade: str = "general"
     renter: bool = True
+    problem: str = Field("", max_length=300)  # what they typed, when routed from a description
 
 
 @app.post("/cases/{case_id}/call/start")
@@ -211,7 +212,7 @@ def call_start(case_id: str, body: CallStart | None = None) -> dict:
         case.checklist_step = 0
 
     case = _update(case_id, change)
-    crew.greet(case_id, case.trade, case.renter)  # every call starts with the expert saying hello
+    crew.greet(case_id, case.trade, case.renter, body.problem)  # the expert says hello
     return {"ok": True, "trade": case.trade, "renter": case.renter}
 
 
@@ -219,8 +220,23 @@ def call_start(case_id: str, body: CallStart | None = None) -> dict:
 def call_end(case_id: str) -> dict:
     case = _case(case_id)
     issues, _ = case.active_issues()
-    crew.call_ended(case_id, len(issues))
+    crew.call_ended(case_id, len(issues), case.renter)
     return {"findings": len(issues), "renter": case.renter}
+
+
+class RouteRequest(BaseModel):
+    text: str = Field(max_length=300)
+
+
+@app.post("/route")
+def route(body: RouteRequest) -> dict:
+    """'My sink won't drain' -> the plumber. Emergencies are caught first. Keyword rules decide;
+    no model call, so it's instant and predictable."""
+    text = " ".join(body.text.split())
+    if e := safety.emergency_in(text):
+        return {"emergency": e.kind, "title": e.title, "steps": e.steps}
+    trade = trades.route(text)
+    return {"trade": trade.id, "name": trade.name, "role": trade.role}
 
 
 class AskRequest(BaseModel):

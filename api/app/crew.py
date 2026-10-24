@@ -22,39 +22,44 @@ def inspector_looking(case_id: str, photo_number: int) -> None:
     db.store.post(case_id, "inspector", f"Looking at photo #{photo_number}…", kind="status")
 
 
+def _short(text: str, limit: int = 160) -> str:
+    """First sentence or two, so a spoken line stays under ~10 seconds."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    return cut[: max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? ")) + 1] or cut.rsplit(" ", 1)[0] + "…"
+
+
+TIER_TAIL = {
+    "pro": "Don't touch it; that needs a licensed pro.",
+    "landlord": "That's your landlord's to fix.",
+    "diy": "You can handle this one yourself.",
+}
+
+
 def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, issues: list[Issue],
                      say: str = "") -> None:
-    """The expert reports a photo. Their spoken line comes from Gemma (in character); the safety
-    guidance that follows comes from the router (app.safety), never from the model."""
+    """ONE spoken line per photo: what the expert sees plus a short safety tail. The spoken line
+    comes from Gemma (in character); the tail comes from the router (app.safety), never the model.
+    Uncertainty and full steps live in the case file, not in the call."""
     refs = {"frame_id": frame_id}
     if not issues:
-        db.store.post(case_id, "inspector", say or "This spot looks fine. Keep going.", refs=refs)
+        db.store.post(case_id, "inspector", _short(say) or "This spot looks fine. Keep going.", refs=refs)
         return
-    found = "; ".join(i.label for i in issues)
-    db.store.post(case_id, "inspector", f"{say or f'I see {found}.'} @Lawyer", refs=refs)
-    unsure = [i.label for i in issues if i.needs_human_check]
-    if unsure:
-        db.store.post(case_id, "inspector",
-                      f"I'm not certain about {', '.join(unsure)}. If it's not a real problem, tap it in your case file.",
-                      refs=refs)
     worst = max((i for i in issues if i.safety), key=lambda i: TIER_ORDER[i.safety["tier"]], default=None)
-    if worst:
-        safety_line(case_id, worst, refs)
-
-
-def safety_line(case_id: str, issue: Issue, refs: dict) -> None:
-    s = issue.safety
-    if s["tier"] == "emergency":
-        db.store.post(case_id, "inspector", s["headline"], kind="emergency", refs={**refs, "emergency": s["emergency"]})
-    elif s["tier"] == "pro":
-        db.store.post(case_id, "inspector", s["headline"], refs={**refs, "tier": "pro"})
-    elif s["tier"] == "landlord":
-        first = f" For now: {s['steps'][0]}" if s["steps"] else ""
-        db.store.post(case_id, "inspector", f"Your landlord has to fix this.{first}", refs={**refs, "tier": "landlord"})
-    else:
-        first = s["steps"][0] if s["steps"] else ""
-        db.store.post(case_id, "inspector", f"Good news, you can handle this one. {first} The rest is in your case file.",
-                      refs={**refs, "tier": "diy"})
+    if worst and worst.safety["tier"] == "emergency":
+        db.store.post(case_id, "inspector", worst.safety["headline"], kind="emergency",
+                      refs={**refs, "emergency": worst.safety["emergency"]})
+        return
+    tier = worst.safety["tier"] if worst else None
+    line = _short(say) or f"I see {'; '.join(i.label for i in issues)}."
+    if tier:
+        line = f"{line} {TIER_TAIL[tier]}"
+        refs["tier"] = tier
+    if tier in ("landlord", "pro"):
+        line += " @Lawyer"
+    db.store.post(case_id, "inspector", line, refs=refs)
 
 
 def emergency(case_id: str, e: Emergency) -> None:
@@ -64,7 +69,7 @@ def emergency(case_id: str, e: Emergency) -> None:
 def checklist_prompt(case_id: str, trade_id: str, step: int) -> None:
     items = trades.get(trade_id).checklist
     if step < len(items):
-        db.store.post(case_id, "inspector", f"Next, could you show me {items[step]}?")
+        db.store.post(case_id, "inspector", f"Next, show me {items[step]}.")
 
 
 # Theo's instant take during the call. Each line restates a specific subsection of the cached
@@ -82,40 +87,39 @@ DEFAULT_TAKE = ("55.1-1220", "your landlord has to make the repairs needed to ke
 
 
 def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
-    """Renters only: Theo on what the landlord must do. Emergencies are left to the emergency card."""
-    seen = set()
-    issues = [i for i in issues if not i.safety or i.safety["tier"] in ("landlord", "pro")]
-    if not issues:
-        return
+    """Renters only. ONE short line from Theo per kind of problem per case, only when the landlord
+    is on the hook. June doesn't chime in each time; she sums up when the call ends."""
+    case = db.store.get(case_id)
+    already = {m.refs.get("issue_type") for m in case.chat if m.agent == "lawyer"}
     for issue in issues:
-        if issue.type in seen:
+        if issue.type in already or not issue.safety or issue.safety["tier"] not in ("landlord", "pro"):
             continue
-        seen.add(issue.type)
+        already.add(issue.type)
         section, line = QUICK_TAKE.get(issue.type, DEFAULT_TAKE)
-        text = f"On the {issue.label}: under § {section}, {line}"
-        if issue.severity >= 4:
-            text += " It's serious enough that it could help you if you're ever taken to court over rent."
-        db.store.post(case_id, "lawyer", text, refs={"section": section})
-    db.store.post(case_id, "advocate", "Got it, that's going in your repair letter.")
+        db.store.post(case_id, "lawyer", f"Section {section}: {line}",
+                      refs={"section": section, "issue_type": issue.type})
 
 
-def greet(case_id: str, trade_id: str = "general", renter: bool = True) -> None:
+def greet(case_id: str, trade_id: str = "general", renter: bool = True, problem: str = "") -> None:
     t = trades.get(trade_id)
-    db.store.post(case_id, "inspector",
-                  f"Hi, I'm {t.name}, your {t.role.lower()}. Let's take a look together. "
-                  f"Hold your phone steady on anything that worries you. First, could you show me {t.checklist[0]}?")
-    if renter:
-        db.store.post(case_id, "lawyer", "I'm Theo. I'll tell you what Virginia law says your landlord has to fix.")
-        db.store.post(case_id, "advocate", "And I'm June. When we hang up, I'll write your repair letter and complaint.")
+    if problem:
+        opener = f"Hi, I'm {t.name}, your {t.role.lower()}. Show me the problem and hold still for a second."
     else:
-        db.store.post(case_id, "advocate", "I'm June. When we hang up, I'll put together your repair plan.")
+        opener = f"Hi, I'm {t.name}. Walk me around slowly. Start with {t.checklist[0]}."
+    db.store.post(case_id, "inspector", opener)
+    if renter and not problem:
+        db.store.post(case_id, "lawyer", "Theo here. I'll flag anything your landlord has to fix.")
 
 
-def call_ended(case_id: str, findings: int) -> None:
-    if findings:
-        db.store.post(case_id, "advocate", "Thanks for walking us through. Let me put your case file together.")
+def call_ended(case_id: str, findings: int, renter: bool = True) -> None:
+    if not findings:
+        db.store.post(case_id, "inspector", "Nothing to flag this time. Call again if something comes up.")
+    elif renter:
+        db.store.post(case_id, "advocate",
+                      f"June here. {findings} thing{'s' if findings != 1 else ''} to put in your repair letter. "
+                      "Your case file is ready.")
     else:
-        db.store.post(case_id, "inspector", "I didn't spot any problems this time. Call us again if something comes up!")
+        db.store.post(case_id, "advocate", "Your repair plan is ready in the case file.")
 
 
 def lawyer_event(case_id: str):

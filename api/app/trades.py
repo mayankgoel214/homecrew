@@ -62,3 +62,24 @@ TRADES: dict[str, Trade] = {
 
 def get(trade_id: str | None) -> Trade:
     return TRADES.get(trade_id or "general", TRADES["general"])
+
+
+import re as _re
+
+ROUTES: list[tuple[str, _re.Pattern]] = [
+    ("plumber", _re.compile(r"water heater|no (hot )?water|hot water", _re.I)),  # before HVAC's "hot"
+    ("electrician", _re.compile(r"outlet|socket|switch|wir|spark|breaker|fuse|power|light.*(flicker|out)|smoke (alarm|detector)|shock", _re.I)),
+    ("hvac", _re.compile(r"heat|furnace|thermostat|\bac\b|a/c|air.?con|cold|hot|vent|filter|radiator|boiler", _re.I)),
+    ("pest", _re.compile(r"mouse|mice|rat|roach|cockroach|bug|bed.?bug|ant|insect|droppings|pest|termite|spider", _re.I)),
+    ("locks", _re.compile(r"lock|deadbolt|door|window|latch|key|glass|broken into|break.?in", _re.I)),
+    ("mold", _re.compile(r"mold|mould|mildew|damp|musty|black spots|stain on (the )?(wall|ceiling)", _re.I)),
+    ("plumber", _re.compile(r"sink|drain|toilet|leak|drip|faucet|tap|pipe|water heater|shower|tub|clog|flush|no (hot )?water", _re.I)),
+]
+
+
+def route(text: str) -> Trade:
+    """Pick the expert for a plain-language problem. Falls back to the general inspector."""
+    for trade_id, pattern in ROUTES:
+        if pattern.search(text or ""):
+            return TRADES[trade_id]
+    return TRADES["general"]
