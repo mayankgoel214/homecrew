@@ -6,13 +6,10 @@ import { PERSONAS, applyTrade, browserVoice, cartesiaVoice, isAgent, namedMentio
 import { useCrewMessages } from "@/hooks/useCrewMessages";
 import { useCrewPlayback } from "@/hooks/useCrewPlayback";
 import Lobby, { type StartOptions } from "@/components/call/Lobby";
-import CaseSummary from "@/components/CaseSummary";
+import Report from "@/components/report/Report";
 import CallScreen, { type Source } from "@/components/call/CallScreen";
 import EvidenceLedger from "@/components/EvidenceLedger";
-import LegalReview from "@/components/LegalReview";
-import AdvocatePanel from "@/components/AdvocatePanel";
 import Transcript from "@/components/Transcript";
-import SafetyPlan from "@/components/SafetyPlan";
 import CrewBadge from "@/components/CrewBadge";
 import { motion } from "motion/react";
 
@@ -149,21 +146,22 @@ export default function HomeCrewApp() {
     const speaker = playback.current && isAgent(playback.current.agent) ? PERSONAS[playback.current.agent] : null;
     const caseNo = kase.id.slice(0, 4).toUpperCase();
     const opened = new Date(kase.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const sections = kase.frames.length === 0
-      ? [<p key="empty" className="rounded-lg border border-hair bg-surface-1 p-5 text-sm text-ink-2">No photos in this case yet. Call the crew and show them around.</p>]
-      : [
-          <CaseSummary key="summary" kase={kase} />,
-          <SafetyPlan key="plan" kase={kase} />,
-          ...(renter
-            ? [
-                <LegalReview key="legal" kase={kase} findingCount={findings} uploading={false} autoStart={justEnded} onChange={setKase} />,
-                ...(kase.legal && kase.legal.findings.length > 0
-                  ? [<AdvocatePanel key="advocate" kase={kase} onChange={setKase} />]
-                  : []),
-              ]
-            : []),
-          <EvidenceLedger key="ledger" kase={kase} onChange={setKase} />,
-        ];
+    const sections = [
+      <Report key="report" kase={kase} renter={renter} autoReview={justEnded} onChange={setKase} />,
+      ...(kase.frames.length
+        ? [
+            <details key="evidence" className="group rounded-lg border border-hair bg-surface-1">
+              <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-[14px] text-ink">
+                <span>Evidence · {kase.ledger.length} photo{kase.ledger.length === 1 ? "" : "s"}, fingerprinted</span>
+                <span className="font-mono text-[10px] text-ink-3 group-open:hidden">SHOW</span>
+              </summary>
+              <div className="border-t border-hair p-3">
+                <EvidenceLedger kase={kase} onChange={setKase} />
+              </div>
+            </details>,
+          ]
+        : []),
+    ];
     return (
       <main className="grain min-h-[100dvh] bg-canvas text-ink">
         <header
@@ -207,7 +205,7 @@ export default function HomeCrewApp() {
               </motion.div>
             ))}
             <details className="rounded-lg border border-hair bg-surface-1 p-4 text-sm">
-              <summary className="cursor-pointer font-medium text-ink-2">What the crew said</summary>
+              <summary className="cursor-pointer list-none text-[14px] text-ink">What the crew said</summary>
               <div className="mt-3">
                 <Transcript messages={messages} />
               </div>

@@ -49,7 +49,7 @@ export const EMERGENCY: Record<EmergencyKind, { title: string; steps: string[] }
 // Never color alone: every tier also has a glyph and a word (WCAG 1.4.1).
 export const TIER: Record<Tier, { label: string; short: string; color: string; ink: string; glyph: string }> = {
   emergency: { label: "Emergency", short: "Emergency", color: "#FF6B5B", ink: "#1A0806", glyph: "!" },
-  pro: { label: "Stop: call a licensed pro", short: "Call a pro", color: "#FFB454", ink: "#1A1206", glyph: "✋" },
+  pro: { label: "Stop: call a licensed pro", short: "Call a pro", color: "#FFB454", ink: "#1A1206", glyph: "■" },
   landlord: { label: "Landlord must fix", short: "Landlord fixes", color: "#7FB7FF", ink: "#06101A", glyph: "§" },
   diy: { label: "Safe to fix yourself", short: "Safe DIY", color: "#6FD39A", ink: "#061A0F", glyph: "✓" },
 };
