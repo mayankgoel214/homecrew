@@ -76,3 +76,40 @@ export async function getStatute(section: string): Promise<Statute> {
   if (!res.ok) throw new Error(`Couldn't load § ${section}`);
   return res.json();
 }
+
+export type TenantInfo = {
+  tenant_name: string;
+  unit_address: string;
+  landlord_name: string;
+  notice_date: string; // YYYY-MM-DD
+  mode: "repair" | "repair_or_terminate";
+  notes: string;
+};
+
+export type Deadline = { day: string; title: string; detail: string };
+
+export type Draft = {
+  id: string;
+  mode: string;
+  letter_text: string;
+  complaint: {
+    to: { office: string; phone: string; building_inspection_phone: string; note: string };
+    description: string;
+    conditions: { issue: string; severity: number; description: string }[];
+  };
+  deadlines: Deadline[];
+  legal_help: { name: string; phone: string; url: string }[];
+  model: string;
+  approved: boolean;
+};
+
+export function draftPaperwork(issues: Issue[], findings: LegalFinding[], tenant: TenantInfo): Promise<Draft> {
+  return postJson("/api/advocate", { issues, findings, tenant }, "Advocate");
+}
+
+export function approveDraft(id: string, letterText: string): Promise<Draft> {
+  return postJson(`/api/advocate/${id}/approve`, { letter_text: letterText }, "Approve");
+}
+
+export const exportUrl = (id: string, kind: "letter.pdf" | "complaint.pdf" | "deadlines.ics") =>
+  `/api/advocate/${id}/export/${kind}`;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { frameFromFile, frameFromVideo, type Frame } from "@/lib/frame";
 import { inspectFrame, lawyerReview, type InspectResult, type Issue, type LawyerResult } from "@/lib/api";
 import StatuteCard from "@/components/StatuteCard";
+import AdvocatePanel from "@/components/AdvocatePanel";
 
 type CameraState = "off" | "starting" | "live" | "unavailable";
 type Shot = {
@@ -230,6 +231,9 @@ export default function Inspect() {
             <p className="text-xs text-neutral-400">
               Looked up {shot.legal.lookups.map((s) => `§ ${s}`).join(", ")}. {shot.legal.disclaimer}
             </p>
+          )}
+          {shot.legal && shot.legal.findings.length > 0 && (
+            <AdvocatePanel key={shot.frame.sha256} issues={issues} findings={shot.legal.findings} />
           )}
           <p className="break-all text-xs text-neutral-500">
             {shot.result.model} · SHA-256 {shot.result.sha256.slice(0, 16)}… ·{" "}
