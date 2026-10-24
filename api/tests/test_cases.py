@@ -22,7 +22,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "store", test_store)
     monkeypatch.setattr(db, "store", test_store)  # the crew posts chat through app.store
     replies = {IMG_A: [MOLD, STAIN], IMG_B: [LOCK]}
-    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
         room_guess="bathroom", issues=replies[data], model="fake"))
     seen = {}
 
@@ -169,10 +169,10 @@ def test_live_frames_skip_clean_and_duplicates(client, monkeypatch):
         return client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", img, "image/jpeg")},
                            data={"client_sha256": hashlib.sha256(img).hexdigest(), "live": "true"}).json()
 
-    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
         room_guess="kitchen", issues=[], model="fake", say="Looks fine here."))
     assert live(IMG_A)["kept"] is False  # clean live frames aren't evidence
-    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="": InspectorResult(
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
         room_guess="bathroom", issues=[MOLD], model="fake", say="That's mold."))
     assert live(IMG_A)["kept"] is True
     assert live(IMG_B)["kept"] is False  # same mold seen again right away

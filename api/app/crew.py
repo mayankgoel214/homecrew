@@ -8,6 +8,8 @@ from app.agents.advocate import Draft
 from app.agents.inspector import Issue
 from app.agents.lawyer import LawyerResult
 from app import store as db
+from app import trades
+from app.safety import TIER_ORDER, Emergency
 
 ROOM = {"living_room": "living room", "other": "", "exterior": "outside"}
 
@@ -22,8 +24,8 @@ def inspector_looking(case_id: str, photo_number: int) -> None:
 
 def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, issues: list[Issue],
                      say: str = "") -> None:
-    """Rosa reports a photo. Her spoken line comes from Gemma (in character); if it's missing we
-    build one from the structured findings."""
+    """The expert reports a photo. Their spoken line comes from Gemma (in character); the safety
+    guidance that follows comes from the router (app.safety), never from the model."""
     refs = {"frame_id": frame_id}
     if not issues:
         db.store.post(case_id, "inspector", say or "This spot looks fine. Keep going.", refs=refs)
@@ -35,6 +37,34 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
         db.store.post(case_id, "inspector",
                       f"I'm not certain about {', '.join(unsure)}. If it's not a real problem, tap it in your case file.",
                       refs=refs)
+    worst = max((i for i in issues if i.safety), key=lambda i: TIER_ORDER[i.safety["tier"]], default=None)
+    if worst:
+        safety_line(case_id, worst, refs)
+
+
+def safety_line(case_id: str, issue: Issue, refs: dict) -> None:
+    s = issue.safety
+    if s["tier"] == "emergency":
+        db.store.post(case_id, "inspector", s["headline"], kind="emergency", refs={**refs, "emergency": s["emergency"]})
+    elif s["tier"] == "pro":
+        db.store.post(case_id, "inspector", s["headline"], refs={**refs, "tier": "pro"})
+    elif s["tier"] == "landlord":
+        first = f" For now: {s['steps'][0]}" if s["steps"] else ""
+        db.store.post(case_id, "inspector", f"Your landlord has to fix this.{first}", refs={**refs, "tier": "landlord"})
+    else:
+        first = s["steps"][0] if s["steps"] else ""
+        db.store.post(case_id, "inspector", f"Good news, you can handle this one. {first} The rest is in your case file.",
+                      refs={**refs, "tier": "diy"})
+
+
+def emergency(case_id: str, e: Emergency) -> None:
+    db.store.post(case_id, "inspector", e.title, kind="emergency", refs={"emergency": e.kind})
+
+
+def checklist_prompt(case_id: str, trade_id: str, step: int) -> None:
+    items = trades.get(trade_id).checklist
+    if step < len(items):
+        db.store.post(case_id, "inspector", f"Next, could you show me {items[step]}?")
 
 
 # Theo's instant take during the call. Each line restates a specific subsection of the cached
@@ -52,7 +82,11 @@ DEFAULT_TAKE = ("55.1-1220", "your landlord has to make the repairs needed to ke
 
 
 def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
+    """Renters only: Theo on what the landlord must do. Emergencies are left to the emergency card."""
     seen = set()
+    issues = [i for i in issues if not i.safety or i.safety["tier"] in ("landlord", "pro")]
+    if not issues:
+        return
     for issue in issues:
         if issue.type in seen:
             continue
@@ -65,11 +99,16 @@ def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
     db.store.post(case_id, "advocate", "Got it, that's going in your repair letter.")
 
 
-def greet(case_id: str) -> None:
+def greet(case_id: str, trade_id: str = "general", renter: bool = True) -> None:
+    t = trades.get(trade_id)
     db.store.post(case_id, "inspector",
-                  "Hi, I'm Rosa! Walk me through your place slowly and point the camera at anything that worries you.")
-    db.store.post(case_id, "lawyer", "I'm Theo. I'll tell you what Virginia law says about each thing Rosa finds.")
-    db.store.post(case_id, "advocate", "And I'm June. When we hang up, I'll write your repair letter and complaint.")
+                  f"Hi, I'm {t.name}, your {t.role.lower()}. Let's take a look together. "
+                  f"Hold your phone steady on anything that worries you. First, could you show me {t.checklist[0]}?")
+    if renter:
+        db.store.post(case_id, "lawyer", "I'm Theo. I'll tell you what Virginia law says your landlord has to fix.")
+        db.store.post(case_id, "advocate", "And I'm June. When we hang up, I'll write your repair letter and complaint.")
+    else:
+        db.store.post(case_id, "advocate", "I'm June. When we hang up, I'll put together your repair plan.")
 
 
 def call_ended(case_id: str, findings: int) -> None:

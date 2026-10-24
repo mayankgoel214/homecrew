@@ -1,4 +1,4 @@
-import type { AgentId } from "@/lib/crew";
+import { PERSONAS, type AgentId, type TradeId } from "@/lib/crew";
 
 // Hand-drawn SVG portraits. The mouth animates while the character is speaking and the eyes
 // blink on their own (both switched off for people who prefer reduced motion, see globals.css).
@@ -83,8 +83,42 @@ const LOOKS: Record<AgentId, Look> = {
   },
 };
 
-export default function Character({ agent, speaking }: { agent: AgentId; speaking: boolean }) {
-  const look = LOOKS[agent];
+// The expert in the inspector's seat changes outfit with the trade.
+const HAIR_SHORT = (
+  <path d="M57 108 C52 68 76 58 100 58 C124 58 148 68 143 108 C138 90 126 80 100 80 C76 80 62 90 57 108 Z" fill="#2b1d14" />
+);
+const cap = (color: string) => (
+  <g>
+    <path d="M56 96 C56 64 78 52 100 52 C122 52 144 64 144 96 Z" fill={color} />
+    <path d="M58 94 L150 94 C162 95 166 101 160 104 L58 102 Z" fill={color} opacity="0.85" />
+  </g>
+);
+const beanie = (color: string) => (
+  <g>
+    <path d="M56 100 C54 60 78 48 100 48 C122 48 146 60 144 100 Z" fill={color} />
+    <rect x="52" y="90" width="96" height="14" rx="7" fill={color} opacity="0.8" />
+  </g>
+);
+const outfit = (color: string, trim: string) => (
+  <g>
+    <path d="M18 240 C18 200 54 180 100 180 C146 180 182 200 182 240 Z" fill={color} />
+    <path d="M84 182 L100 206 L116 182 Z" fill={trim} />
+    <rect x="70" y="200" width="10" height="40" fill={trim} opacity="0.5" />
+    <rect x="120" y="200" width="10" height="40" fill={trim} opacity="0.5" />
+  </g>
+);
+const EXPERT_LOOKS: Partial<Record<TradeId, Look>> = {
+  plumber: { skin: "#a8724d", skinShade: "#946344", hairFront: HAIR_SHORT, hat: cap("#2563eb"), outfit: outfit("#1e40af", "#93c5fd") },
+  electrician: { ...LOOKS.inspector, outfit: outfit("#1f2937", "#facc15") },
+  hvac: { skin: "#e8b48f", skinShade: "#d49f7a", hairFront: HAIR_SHORT, hat: beanie("#4b5563"), outfit: outfit("#b91c1c", "#fecaca") },
+  pest: { ...LOOKS.inspector, skin: "#c08457", skinShade: "#ab744b", hat: cap("#15803d"), outfit: outfit("#166534", "#bbf7d0") },
+  locks: { skin: "#f0c8a8", skinShade: "#dcb090", hairFront: HAIR_SHORT, outfit: outfit("#78350f", "#fde68a") },
+  mold: { ...LOOKS.inspector, outfit: outfit("#0f766e", "#99f6e4") },
+};
+
+export default function Character({ agent, speaking, trade }: { agent: AgentId; speaking: boolean; trade?: TradeId }) {
+  const expert = agent === "inspector" ? EXPERT_LOOKS[trade ?? PERSONAS.inspector.trade ?? "general"] : undefined;
+  const look = expert ?? LOOKS[agent];
   return (
     <svg viewBox="0 0 200 240" className="h-full w-full" aria-hidden>
       {look.hairBack}

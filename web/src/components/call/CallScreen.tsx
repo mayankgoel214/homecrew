@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addFrame, getCase, type Case, type ChatMessage, type Issue } from "@/lib/api";
+import { addFrame, askExpert, getCase, type Case, type ChatMessage, type Issue } from "@/lib/api";
 import { PERSONAS, isAgent, namedMentions, type AgentId } from "@/lib/crew";
 import { frameFromFile, frameFromVideo, type Frame as Photo } from "@/lib/frame";
 import { createDemoStream } from "@/lib/demoFeed";
 import { SceneWatch } from "@/lib/sceneWatch";
 import Character from "@/components/Character";
+import EmergencyCard from "@/components/call/EmergencyCard";
+import { createListener, speechSupported } from "@/lib/listen";
+import { TIER, emergencyIn, worstTier, type EmergencyKind } from "@/lib/safety";
 
 export type Source = "camera" | "demo";
 type Snapshot = { photo: Photo; issues: Issue[]; id: number };
@@ -94,11 +97,13 @@ const ICONS = {
   speakerOn: <path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" fill="currentColor" />,
   speakerOff: <path d="M4 9v6h4l5 4V5L8 9H4zm11.6 3 2.2-2.2-1.4-1.4-2.2 2.2-2.2-2.2-1.4 1.4 2.2 2.2-2.2 2.2 1.4 1.4 2.2-2.2 2.2 2.2 1.4-1.4z" fill="currentColor" />,
   photos: <path d="M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 11h14l-4.5-6-3.5 4.5-2.5-3L5 16zm3-6.5A1.5 1.5 0 1 0 8 6.5a1.5 1.5 0 0 0 0 3z" fill="currentColor" />,
+  mic: <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9z" fill="currentColor" />,
   hangUp: <path d="M12 9c-2.9 0-5.7.7-8 2a2 2 0 0 0-1 2l.3 2.2a1 1 0 0 0 1.2.8l3.4-.7a1 1 0 0 0 .8-.9l.2-1.9c2-.6 4.2-.6 6.2 0l.2 1.9a1 1 0 0 0 .8.9l3.4.7a1 1 0 0 0 1.2-.8L21 13a2 2 0 0 0-1-2c-2.3-1.3-5.1-2-8-2z" fill="currentColor" />,
 };
 
 export default function CallScreen({
   kase,
+  messages,
   source,
   startedAt,
   current,
@@ -111,6 +116,7 @@ export default function CallScreen({
   onEnd,
 }: {
   kase: Case;
+  messages: ChatMessage[];
   source: Source;
   startedAt: number;
   current: ChatMessage | null;
@@ -129,7 +135,55 @@ export default function CallScreen({
   const [looking, setLooking] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [problem, setProblem] = useState("");
+  const [emergency, setEmergency] = useState<EmergencyKind | null>(null);
+  const [micOn, setMicOn] = useState(false);
+  const [heard, setHeard] = useState("");
+  const listener = useRef<ReturnType<typeof createListener> | null>(null);
+  const seenEmergency = useRef(messages.reduce((m, x) => Math.max(m, x.seq), -1));
   const clock = useClock(startedAt);
+
+  // The crew flagged active danger (from what it saw, or from a question): show the card.
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.kind === "emergency" && m.seq > seenEmergency.current) {
+        seenEmergency.current = m.seq;
+        setEmergency((m.refs.emergency as EmergencyKind) ?? "fire");
+      }
+    }
+  }, [messages]);
+
+  async function ask(text: string) {
+    setHeard(text);
+    const kind = emergencyIn(text);
+    if (kind) setEmergency(kind); // instant: no waiting on the server or the model
+    try {
+      await askExpert(kase.id, text);
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : "Couldn't send your question.");
+    }
+    setTimeout(() => setHeard(""), 4000);
+  }
+
+  function toggleMic() {
+    if (!speechSupported()) {
+      const typed = window.prompt(`Ask ${PERSONAS.inspector.name} a question:`);
+      if (typed?.trim()) ask(typed.trim());
+      return;
+    }
+    if (!listener.current) listener.current = createListener(ask, (msg) => { setProblem(msg); setMicOn(false); });
+    if (micOn) listener.current.pause();
+    else listener.current.resume();
+    setMicOn(!micOn);
+  }
+
+  // Don't transcribe the crew's own voices: pause listening while anyone on the crew is talking.
+  useEffect(() => {
+    if (!micOn || !listener.current) return;
+    if (speaking) listener.current.pause();
+    else listener.current.resume();
+  }, [speaking, micOn]);
+
+  useEffect(() => () => listener.current?.pause(), []);
 
   const findings = kase.frames.filter((f) => !f.removed).reduce((n, f) => n + f.issues.length - f.dismissed.length, 0);
 
@@ -287,7 +341,21 @@ export default function CallScreen({
               ) : null,
             )}
           </div>
-          <p className="truncate px-2 py-1.5 text-[11px] font-semibold first-letter:uppercase">{snapshot.issues.map((i) => i.label).join(" · ")}</p>
+          <p className="truncate px-2 pt-1.5 text-[11px] font-semibold first-letter:uppercase">{snapshot.issues.map((i) => i.label).join(" · ")}</p>
+          {(() => {
+            const tier = worstTier(snapshot.issues.map((i) => i.safety?.tier));
+            return tier ? (
+              <p className="mx-2 mb-2 mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: TIER[tier].color, color: TIER[tier].ink }}>
+                {TIER[tier].short}
+              </p>
+            ) : <div className="h-1.5" />;
+          })()}
+        </div>
+      )}
+
+      {heard && (
+        <div className="absolute right-3 max-w-[70%] rounded-2xl rounded-br-sm bg-white px-3 py-2 text-sm font-medium text-black shadow-lg" style={{ bottom: "calc(max(18px, env(safe-area-inset-bottom)) + 200px)" }}>
+          {heard}
         </div>
       )}
 
@@ -310,9 +378,14 @@ export default function CallScreen({
       </div>
 
       {/* controls */}
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-6" style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3.5" style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
         <RoundButton label={voiceOn ? "Mute the crew" : "Unmute the crew"} onClick={onToggleVoice} pressed={voiceOn}>
           <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>{voiceOn ? ICONS.speakerOn : ICONS.speakerOff}</svg>
+        </RoundButton>
+        <RoundButton label={micOn ? "Stop listening" : `Ask ${PERSONAS.inspector.name} out loud`} onClick={toggleMic} pressed={micOn}>
+          <span className={`flex h-full w-full items-center justify-center rounded-full ${micOn ? "bg-white text-black" : ""}`}>
+            <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>{ICONS.mic}</svg>
+          </span>
         </RoundButton>
         <RoundButton
           label="Snap this now"
@@ -336,6 +409,14 @@ export default function CallScreen({
         </RoundButton>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" aria-label="Choose a photo" />
       </div>
+
+      {micOn && (
+        <p className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-black" style={{ bottom: "calc(max(18px, env(safe-area-inset-bottom)) + 78px)" }}>
+          {speaking ? "Waiting for the crew…" : "Listening. Ask anything"}
+        </p>
+      )}
+
+      {emergency && <EmergencyCard kind={emergency} onDismiss={() => setEmergency(null)} />}
     </div>
   );
 }

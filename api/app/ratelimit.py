@@ -18,7 +18,7 @@ from fastapi import HTTPException, Request
 
 WINDOW = 600  # seconds (10 minutes)
 # Generous on purpose: everyone on campus wifi can share one public IP.
-PER_VISITOR = {"case": 30, "upload": 120, "lawyer": 20, "advocate": 20, "tts": 300}
+PER_VISITOR = {"case": 30, "upload": 120, "lawyer": 20, "advocate": 20, "tts": 300, "ask": 60}
 GLOBAL_GEMMA_PER_HOUR = 1200  # all visitors combined, per instance
 
 

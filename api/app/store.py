@@ -67,6 +67,9 @@ class Case(BaseModel):
     legal_refs: list[dict] = []  # flattened issue index -> {frame_id, issue_index}
     draft: Draft | None = None
     chat: list[ChatMessage] = []
+    trade: str = "general"  # which expert the tenant called (app.trades)
+    renter: bool = True  # landlord duties only apply to renters
+    checklist_step: int = 0  # how far the expert's walk-through has got
 
     def active_issues(self) -> tuple[list[Issue], list[dict]]:
         """Issues from frames still in the case, minus dismissed ones, with where each came from."""

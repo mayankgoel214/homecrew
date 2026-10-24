@@ -1,7 +1,7 @@
 export type ChatMessage = {
   seq: number;
   agent: "inspector" | "lawyer" | "advocate" | "you" | "system";
-  kind: "message" | "tool" | "status" | "error";
+  kind: "message" | "tool" | "status" | "error" | "emergency";
   text: string;
   refs: Record<string, string>;
   ts: string;
@@ -16,7 +16,10 @@ export type Issue = {
   confidence: number;
   evidence_note: string;
   needs_human_check: boolean;
+  safety?: { tier: Tier; headline: string; steps: string[]; emergency?: string } | null;
 };
+
+export type Tier = "emergency" | "pro" | "landlord" | "diy";
 
 export type LegalFinding = {
   issue_index: number;
@@ -99,6 +102,8 @@ export type Case = {
   legal_refs: { frame_id: string; issue_index: number }[];
   draft: Draft | null;
   chat: ChatMessage[];
+  trade: string;
+  renter: boolean;
 };
 
 export type Verification = {
@@ -139,8 +144,12 @@ export function addFrame(caseId: string, blob: Blob, sha256: string, live = fals
 export const updateFrame = (caseId: string, frameId: string, patch: { removed?: boolean; dismissed?: number[] }) =>
   call<Case>(`/api/cases/${caseId}/frames/${frameId}`, json("PATCH", patch), "Updating the photo");
 
-export const startCall = (caseId: string) => call<{ ok: boolean }>(`/api/cases/${caseId}/call/start`, { method: "POST" }, "Starting the call");
-export const endCall = (caseId: string) => call<{ findings: number }>(`/api/cases/${caseId}/call/end`, { method: "POST" }, "Ending the call");
+export const startCall = (caseId: string, trade: string, renter: boolean) =>
+  call<{ ok: boolean }>(`/api/cases/${caseId}/call/start`, json("POST", { trade, renter }), "Starting the call");
+export const endCall = (caseId: string) =>
+  call<{ findings: number; renter: boolean }>(`/api/cases/${caseId}/call/end`, { method: "POST" }, "Ending the call");
+export const askExpert = (caseId: string, text: string) =>
+  call<{ answer: string; emergency?: string; refused?: boolean }>(`/api/cases/${caseId}/ask`, json("POST", { text }), "Asking");
 export const verifyCase = (caseId: string) => call<Verification>(`/api/cases/${caseId}/verify`, undefined, "Verify");
 export const runLawyer = (caseId: string) => call<Case>(`/api/cases/${caseId}/lawyer`, { method: "POST" }, "Lawyer");
 export const runAdvocate = (caseId: string, tenant: TenantInfo) =>

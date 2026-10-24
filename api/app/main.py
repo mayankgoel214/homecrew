@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
@@ -7,11 +8,11 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from app import crew, exports
+from app import crew, exports, safety, trades
 from app.agents import advocate, lawyer
 from app.agents.inspector import inspect
 from app.config import settings
-from app.gemma import GemmaError
+from app.gemma import GemmaError, generate_json
 from app.ratelimit import fingerprint, rate_limit, visitor_ip
 from app.statutes import va_code_lookup
 from app.store import Case, ledger_export, now, store
@@ -52,13 +53,14 @@ def statute(section: str) -> dict:
 class SpeakRequest(BaseModel):
     agent: str
     text: str = Field(max_length=600)
+    trade: str | None = None  # the expert's voice depends on which trade was called
 
 
 @app.post("/tts", dependencies=[Depends(rate_limit("tts"))])
 def tts(body: SpeakRequest) -> Response:
     """One crew line as MP3. 503 when voice isn't configured, so the browser falls back."""
     try:
-        audio = synthesize(body.agent, body.text)
+        audio = synthesize(body.agent, body.text, body.trade)
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     except VoiceUnavailable as e:
@@ -123,17 +125,24 @@ async def add_frame(
     # directly here would freeze the event loop: no chat streaming, and uploads would queue.
     if not live:
         await asyncio.to_thread(crew.inspector_looking, case_id, photo_number)
+    trade = trades.get(case.trade)
+    expert = (f"You are {trade.name}, a {trade.role.lower()} on a live video call with someone in their home. "
+              f"Pay special attention to {trade.focus}, but still report any clear safety problem you see.")
     try:
-        result = await asyncio.to_thread(inspect, data, notes, frame.content_type)
+        result = await asyncio.to_thread(inspect, data, notes, frame.content_type, expert)
     except GemmaError as e:
         if not live:  # a dropped live frame isn't worth interrupting the call for
             await asyncio.to_thread(
                 store.post, case_id, "inspector", f"I couldn't analyze photo #{photo_number}: {e}", "error")
         raise HTTPException(502, str(e)) from e
 
+    for issue in result.issues:  # the safety router labels every finding before anyone gives advice
+        issue.safety = safety.classify(issue.type, issue.label, issue.evidence_note, issue.severity, case.renter)
+
     if live and not _worth_keeping(case, result.issues):
         if not result.issues and _quiet_for(case, "inspector", LIVE_CLEAN_COMMENT_SECONDS):
             await asyncio.to_thread(crew.inspector_report, case_id, "", 0, result.room_guess, [], result.say)
+            await asyncio.to_thread(_next_checklist_item, case_id)
         return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
 
     case, added = await asyncio.to_thread(
@@ -142,8 +151,10 @@ async def add_frame(
     )
     await asyncio.to_thread(
         crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues, result.say)
-    if live and result.issues:
+    if live and result.issues and case.renter:
         await asyncio.to_thread(crew.lawyer_quick_take, case_id, result.issues)
+    if live:
+        await asyncio.to_thread(_next_checklist_item, case_id)
     return {"kept": True, "frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump(),
             "issues": [i.model_dump() for i in result.issues], "say": result.say}
 
@@ -173,18 +184,88 @@ def _quiet_for(case: Case, agent: str, seconds: float) -> bool:
     return not said or _seconds_since(said[-1].ts) > seconds
 
 
+def _next_checklist_item(case_id: str) -> None:
+    """Move the expert's walk-through on ("Next, could you show me the thermostat?")."""
+    step = {}
+
+    def change(case: Case):
+        case.checklist_step += 1
+        step.update(trade=case.trade, n=case.checklist_step)
+
+    _update(case_id, change)
+    crew.checklist_prompt(case_id, step["trade"], step["n"])
+
+
+class CallStart(BaseModel):
+    trade: str = "general"
+    renter: bool = True
+
+
 @app.post("/cases/{case_id}/call/start")
-def call_start(case_id: str) -> dict:
-    if not _case(case_id).chat:  # greet once per case
-        crew.greet(case_id)
-    return {"ok": True}
+def call_start(case_id: str, body: CallStart | None = None) -> dict:
+    body = body or CallStart()
+
+    def change(case: Case):
+        case.trade = trades.get(body.trade).id
+        case.renter = body.renter
+        case.checklist_step = 0
+
+    case = _update(case_id, change)
+    crew.greet(case_id, case.trade, case.renter)  # every call starts with the expert saying hello
+    return {"ok": True, "trade": case.trade, "renter": case.renter}
 
 
 @app.post("/cases/{case_id}/call/end")
 def call_end(case_id: str) -> dict:
-    issues, _ = _case(case_id).active_issues()
+    case = _case(case_id)
+    issues, _ = case.active_issues()
     crew.call_ended(case_id, len(issues))
-    return {"findings": len(issues)}
+    return {"findings": len(issues), "renter": case.renter}
+
+
+class AskRequest(BaseModel):
+    text: str = Field(max_length=400)
+
+
+ASK_PROMPT = (Path(__file__).parent / "prompts" / "ask.md").read_text()
+
+
+@app.post("/cases/{case_id}/ask", dependencies=[Depends(rate_limit("ask"))])
+def ask(case_id: str, body: AskRequest) -> dict:
+    """The tenant asks the expert something out loud. Emergencies and never-DIY jobs are answered
+    by fixed rules before any model sees the question; the model's answer is checked again after."""
+    case = _case(case_id)
+    question = " ".join(body.text.split())
+    if not question:
+        raise HTTPException(400, "Say something first")
+    store.post(case_id, "you", question)
+
+    if e := safety.emergency_in(question):
+        crew.emergency(case_id, e)
+        return {"answer": e.title, "emergency": e.kind}
+    if refusal := safety.refuse_reason(question):
+        store.post(case_id, "inspector", refusal, refs={"tier": "pro"})
+        return {"answer": refusal, "refused": True}
+
+    trade = trades.get(case.trade)
+    issues, _ = case.active_issues()
+    findings = "\n".join(f"- {i.label} ({(i.safety or {}).get('tier', 'unrated')})" for i in issues) or "- none yet"
+    prompt = (ASK_PROMPT.replace("{{NAME}}", trade.name).replace("{{ROLE}}", trade.role.lower())
+              .replace("{{HOME}}", "a rented apartment in Virginia" if case.renter else "their own home in Virginia")
+              .replace("{{FINDINGS}}", findings).replace("{{QUESTION}}", question.replace('"', "'"))
+              .replace("{{TENANCY}}", "They rent: if something is the landlord's responsibility, say so." if case.renter
+                       else "They own the home, so there's no landlord to call."))
+    try:
+        raw, _ = generate_json(prompt)
+        answer = " ".join(str((raw or {}).get("say", "")).split())[:400] if isinstance(raw, dict) else ""
+    except GemmaError:
+        answer = ""
+    if not answer:
+        answer = "Sorry, I didn't catch that. Could you ask again, or show me what you mean?"
+    elif safety.NEVER_DIY.search(answer) and "professional" not in answer.lower():
+        answer = safety.refuse_reason(answer) or answer  # belt and braces on the model's reply
+    store.post(case_id, "inspector", answer)
+    return {"answer": answer}
 
 
 @app.get("/cases/{case_id}/frames/{frame_id}/image")

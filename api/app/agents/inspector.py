@@ -37,6 +37,7 @@ class Issue(BaseModel):
     confidence: float = Field(ge=0, le=1)
     evidence_note: str
     needs_human_check: bool = False
+    safety: dict | None = None  # set by app.safety.classify: tier, headline, steps
 
     @field_validator("type", mode="before")
     @classmethod
@@ -68,8 +69,9 @@ def _to_bbox(box) -> list[float] | None:
     return [round(xmin, 4), round(ymin, 4), round(xmax - xmin, 4), round(ymax - ymin, 4)]
 
 
-def inspect(image: bytes, notes: str = "", mime_type: str = "image/jpeg") -> InspectorResult:
-    prompt = PROMPT + (f"\n\nTenant's note about this photo: {notes[:500]}" if notes else "")
+def inspect(image: bytes, notes: str = "", mime_type: str = "image/jpeg", expert: str = "") -> InspectorResult:
+    prompt = (expert + "\n\n" if expert else "") + PROMPT
+    prompt += f"\n\nTenant's note about this photo: {notes[:500]}" if notes else ""
     raw, model = generate_json(prompt, [Image(image, mime_type)])
     if isinstance(raw, list):
         raw = {"issues": raw}

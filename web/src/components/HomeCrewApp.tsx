@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createCase, endCall, getCase, startCall, type Case } from "@/lib/api";
-import { PERSONAS, browserVoice, cartesiaVoice, isAgent, namedMentions, silentVoice, unlockAudio } from "@/lib/crew";
+import { PERSONAS, applyTrade, browserVoice, cartesiaVoice, isAgent, namedMentions, silentVoice, unlockAudio, type TradeId } from "@/lib/crew";
 import { useCrewMessages } from "@/hooks/useCrewMessages";
 import { useCrewPlayback } from "@/hooks/useCrewPlayback";
 import Lobby from "@/components/call/Lobby";
@@ -11,6 +11,7 @@ import EvidenceLedger from "@/components/EvidenceLedger";
 import LegalReview from "@/components/LegalReview";
 import AdvocatePanel from "@/components/AdvocatePanel";
 import Transcript from "@/components/Transcript";
+import SafetyPlan from "@/components/SafetyPlan";
 
 type View = "lobby" | "call" | "file";
 const CASE_KEY = "homecrew.caseId";
@@ -40,12 +41,22 @@ export default function HomeCrewApp() {
   const [startedAt, setStartedAt] = useState(0);
   const [voiceOn, setVoiceOn] = useState(true);
   const [justEnded, setJustEnded] = useState(false);
+  const [trade, setTrade] = useState<TradeId>("general");
+  const [renter, setRenter] = useState(true);
   const historyUpTo = useRef(Number.MAX_SAFE_INTEGER); // nothing plays until a call starts
 
   useEffect(() => {
     if (read(VOICE_KEY) === "off") setVoiceOn(false);
     const id = read(CASE_KEY);
-    if (id) getCase(id).then(setKase).catch(() => write(CASE_KEY, null));
+    if (id)
+      getCase(id)
+        .then((c) => {
+          applyTrade(c.trade as TradeId);
+          setTrade(c.trade as TradeId);
+          setRenter(c.renter);
+          setKase(c);
+        })
+        .catch(() => write(CASE_KEY, null));
   }, []);
 
   const voice = useMemo(() => {
@@ -56,8 +67,11 @@ export default function HomeCrewApp() {
   const { messages } = useCrewMessages(kase?.id ?? null, kase?.chat ?? NO_CHAT);
   const playback = useCrewPlayback(messages, historyUpTo.current, voice);
 
-  async function start(src: Source) {
+  async function start(src: Source, t: TradeId = trade, rent: boolean = renter) {
     unlockAudio(); // must happen inside this tap for iPhones to allow sound
+    applyTrade(t);
+    setTrade(t);
+    setRenter(rent);
     setStarting(true);
     try {
       let c = kase;
@@ -70,7 +84,7 @@ export default function HomeCrewApp() {
       setSource(src);
       setStartedAt(Date.now());
       setView("call");
-      await startCall(c.id); // the crew says hello
+      await startCall(c.id, t, rent); // the expert says hello
     } catch (e) {
       alert(e instanceof Error ? e.message : "Couldn't start the call");
     } finally {
@@ -112,6 +126,7 @@ export default function HomeCrewApp() {
     return (
       <CallScreen
         kase={kase}
+        messages={messages}
         source={source}
         startedAt={startedAt}
         current={playback.current}
@@ -151,9 +166,14 @@ export default function HomeCrewApp() {
             </p>
           ) : (
             <>
-              <LegalReview kase={kase} findingCount={findings} uploading={false} autoStart={justEnded} onChange={setKase} />
-              {kase.legal && kase.legal.findings.length > 0 && (
-                <AdvocatePanel key={kase.legal.findings.length + kase.ledger.length} kase={kase} onChange={setKase} />
+              <SafetyPlan kase={kase} />
+              {renter && (
+                <>
+                  <LegalReview kase={kase} findingCount={findings} uploading={false} autoStart={justEnded} onChange={setKase} />
+                  {kase.legal && kase.legal.findings.length > 0 && (
+                    <AdvocatePanel key={kase.legal.findings.length + kase.ledger.length} kase={kase} onChange={setKase} />
+                  )}
+                </>
               )}
               <EvidenceLedger kase={kase} onChange={setKase} />
             </>

@@ -6,6 +6,7 @@ from collections import OrderedDict
 
 import httpx
 
+from app import trades
 from app.config import settings
 
 VOICES = {
@@ -23,13 +24,14 @@ class VoiceUnavailable(RuntimeError):
     pass
 
 
-def synthesize(agent: str, text: str) -> bytes:
+def synthesize(agent: str, text: str, trade: str | None = None) -> bytes:
     if not settings.cartesia_api_key:
         raise VoiceUnavailable("Voice isn't configured")
     if agent not in VOICES:
         raise ValueError("Unknown crew member")
     text = " ".join(text.split())[:MAX_CHARS]
-    key = hashlib.sha256(f"{agent}|{settings.cartesia_model}|{text}".encode()).hexdigest()
+    voice = trades.get(trade).voice if agent == "inspector" and trade else VOICES[agent]()
+    key = hashlib.sha256(f"{voice}|{settings.cartesia_model}|{text}".encode()).hexdigest()
     if key in _cache:
         _cache.move_to_end(key)
         return _cache[key]
@@ -40,7 +42,7 @@ def synthesize(agent: str, text: str) -> bytes:
             json={
                 "model_id": settings.cartesia_model,
                 "transcript": text,
-                "voice": {"mode": "id", "id": VOICES[agent]()},
+                "voice": {"mode": "id", "id": voice},
                 "output_format": {"container": "mp3", "sample_rate": 44100, "bit_rate": 128000},
                 "language": "en",
             },

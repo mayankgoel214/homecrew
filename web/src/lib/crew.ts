@@ -5,6 +5,7 @@ export type AgentId = "inspector" | "lawyer" | "advocate";
 
 export type Persona = {
   id: AgentId;
+  trade?: TradeId; // the inspector slot is played by whichever expert was called
   name: string;
   role: string;
   tagline: string;
@@ -40,6 +41,27 @@ export const PERSONAS: Record<AgentId, Persona> = {
 };
 
 export const isAgent = (agent: string): agent is AgentId => agent in PERSONAS;
+
+// ---- trades: who you can call -----------------------------------------------------------------
+
+export type TradeId = "general" | "plumber" | "electrician" | "hvac" | "pest" | "locks" | "mold";
+
+export const TRADES: { id: TradeId; name: string; role: string; accent: string; checks: string }[] = [
+  { id: "general", name: "Rosa", role: "Home inspector", accent: "#f5b301", checks: "Not sure? A full walk-through" },
+  { id: "plumber", name: "Marco", role: "Plumber", accent: "#3b82f6", checks: "Leaks, drips, toilets, water heater" },
+  { id: "electrician", name: "Dana", role: "Electrician", accent: "#facc15", checks: "Outlets, wiring, smoke alarms" },
+  { id: "hvac", name: "Sam", role: "Heating & AC", accent: "#f87171", checks: "No heat, thermostat, filters" },
+  { id: "pest", name: "Lena", role: "Pest specialist", accent: "#4ade80", checks: "Mice, roaches, bedbugs" },
+  { id: "locks", name: "Archie", role: "Locks & doors", accent: "#c084fc", checks: "Locks, door frames, windows" },
+  { id: "mold", name: "Rosa", role: "Mold & water", accent: "#2dd4bf", checks: "Mold, damp walls, stains" },
+];
+
+/** Put the chosen expert in the inspector's seat. Everything that reads PERSONAS.inspector
+ *  (tiles, captions, transcript, voice) picks it up on the next render. */
+export function applyTrade(id: TradeId) {
+  const t = TRADES.find((x) => x.id === id) ?? TRADES[0];
+  Object.assign(PERSONAS.inspector, { name: t.name, role: t.role, accent: t.accent, trade: t.id, tagline: t.checks });
+}
 
 const MENTION = /@(Inspector|Lawyer|Advocate)\b/g;
 const byRole = (role: string) => Object.values(PERSONAS).find((p) => p.role === role)!;
@@ -181,7 +203,7 @@ export function unlockAudio() {
 export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
   const pending = new Map<string, Promise<string | null>>(); // line -> object URL
   let stopCurrent: (() => void) | null = null;
-  const key = (text: string, p: Persona) => `${p.id}|${text}`;
+  const key = (text: string, p: Persona) => `${p.id}|${p.trade ?? ""}|${text}`;
 
   const fetchLine = (text: string, persona: Persona) => {
     const k = key(text, persona);
@@ -191,7 +213,7 @@ export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
         fetch("/api/tts", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ agent: persona.id, text: speakable(text) }),
+          body: JSON.stringify({ agent: persona.id, text: speakable(text), trade: persona.trade }),
         })
           .then((r) => (r.ok ? r.blob() : null))
           .then((b) => (b ? URL.createObjectURL(b) : null))

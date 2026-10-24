@@ -21,6 +21,19 @@ Most renters don't know which law applies, what notice to send, or how to docume
 
 ## What HomeCrew does
 
+**Pick an expert, start a video call.** Plumber, electrician, heating & AC, pest, locks & doors, mold & water, or a general home inspector. The expert walks you around your place the way a real tech would ("show me under the sink"), answers questions you ask out loud, and every finding gets a safety rating from fixed rules, not the AI:
+
+| | Tier | What happens |
+|---|---|---|
+| 🔴 | **Emergency** | Gas smell, CO alarm, sparks, active flooding: a full-screen card ("Leave now, call 911") appears instantly, even before the AI is asked |
+| 🟡 | **Stop: call a licensed pro** | Wiring, panels, gas, water heaters, big mold, lead/asbestos, ladders, structural. The crew refuses to give step-by-step instructions |
+| 🔵 | **Landlord must fix** (renters) | Theo cites Va. Code § 55.1-1220 and June drafts the 21-day notice |
+| 🟢 | **Safe to fix yourself** | Reviewed, fixed steps (shutoff valve, filter, thermostat, small mold cleanup) |
+
+Research behind this: [docs/research-expert-call.md](docs/research-expert-call.md).
+
+### The original walk-through
+
 1. **Inspect:** open HomeCrew in your phone's browser, point the live camera at the problem, tap.
 2. **Inspector agent** (Gemma 4 vision) marks the issue (mold, water damage, broken lock, exposed wiring, pests, missing smoke detector…) with a severity and a confidence score. Low-confidence findings get a "needs human check" badge.
 3. **Lawyer agent** (Gemma 4 + Virginia Code lookup) maps each issue to the exact statute, quotes it, gives the deadline, and flags whether it's a § 55.1-1241 eviction defense. It can only cite sections its lookup tool returned.
