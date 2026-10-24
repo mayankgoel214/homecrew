@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+
+# pre-shot walkthrough footage for recording the demo (private, not committed)
+/public/walkthrough/

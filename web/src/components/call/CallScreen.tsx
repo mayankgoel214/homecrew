@@ -126,6 +126,20 @@ export default function CallScreen({
     let cancelled = false;
     (async () => {
       try {
+        // Hidden recording input: /?feed=/walkthrough/room.mp4 plays a pre-shot walkthrough as the
+        // camera. Everything downstream (scene watch, Gemma analysis, the crew) runs live on it.
+        const feed = source === "camera" ? new URLSearchParams(window.location.search).get("feed") : null;
+        if (feed && feed.startsWith("/")) {
+          const video = videoRef.current!;
+          video.src = feed;
+          video.muted = true;
+          video.loop = false;
+          await video.play();
+          if (cancelled) return;
+          watch.current = new SceneWatch();
+          stop = () => { video.pause(); video.removeAttribute("src"); video.load(); };
+          return;
+        }
         let stream: MediaStream;
         if (source === "demo") {
           const demo = await createDemoStream();
