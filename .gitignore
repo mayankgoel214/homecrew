@@ -24,3 +24,4 @@ __pycache__/
 
 # never commit real tenant photos; put demo images in samples/ only if they contain no people or addresses
 uploads/
+samples/out/
