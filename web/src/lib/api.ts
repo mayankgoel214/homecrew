@@ -1,4 +1,11 @@
-import type { ChatMessage } from "@/components/CrewChat";
+export type ChatMessage = {
+  seq: number;
+  agent: "inspector" | "lawyer" | "advocate" | "you" | "system";
+  kind: "message" | "tool" | "status" | "error";
+  text: string;
+  refs: Record<string, string>;
+  ts: string;
+};
 
 export type Issue = {
   type: string;

@@ -6,12 +6,13 @@ import { addFrame, createCase, getCase, type Case, type Issue } from "@/lib/api"
 import EvidenceLedger from "@/components/EvidenceLedger";
 import LegalReview from "@/components/LegalReview";
 import AdvocatePanel from "@/components/AdvocatePanel";
-import CrewChat from "@/components/CrewChat";
+import CrewCall from "@/components/CrewCall";
 
 type CameraState = "off" | "starting" | "live" | "unavailable";
 type Shot = { photo: Photo; issues?: Issue[]; error?: string };
 
 const CASE_KEY = "homecrew.caseId";
+const NO_CHAT: Case["chat"] = [];
 const SEVERITY_COLOR = ["", "#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
 const REGION_CELL: Record<string, [number, number]> = {
   "top-left": [0, 0], top: [1, 0], "top-right": [2, 0],
@@ -151,7 +152,7 @@ export default function Inspect() {
         )}
       </header>
 
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-900">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-neutral-900">
         <video
           ref={videoRef}
           playsInline
@@ -166,7 +167,7 @@ export default function Inspect() {
               className="relative"
               style={{
                 aspectRatio: `${shot.photo.width} / ${shot.photo.height}`,
-                ...(shot.photo.width / shot.photo.height < 3 / 4 ? { height: "100%" } : { width: "100%" }),
+                ...(shot.photo.width / shot.photo.height < 4 / 3 ? { height: "100%" } : { width: "100%" }),
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -244,7 +245,7 @@ export default function Inspect() {
 
       {shot?.error && <p role="alert" className="rounded-md bg-red-950 p-3 text-sm text-red-200">{shot.error}</p>}
 
-      {kase && <CrewChat caseId={kase.id} saved={kase.chat} />}
+      <CrewCall key={kase?.id ?? "new"} caseId={kase?.id ?? null} saved={kase?.chat ?? NO_CHAT} />
 
       {kase && kase.frames.length > 0 && (
         <>
