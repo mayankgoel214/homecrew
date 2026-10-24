@@ -28,7 +28,7 @@ Rules:
 - box_2d is [ymin, xmin, ymax, xmax], with each value an integer from 0 to 1000, scaled to the image height and width.
 - region is where the defect is in a 3x3 grid: one of top-left, top, top-right, left, center, right, bottom-left, bottom, bottom-right.
 - evidence_note is one plain-English sentence a tenant could put in a letter, describing what is visible.
-- say is what you, the expert on this call, say out loud to the tenant on a live video call about this photo: one or two short, warm, natural spoken sentences (under 25 words total). Mention only what is in "issues". If there are no issues, say briefly that this spot looks fine and to keep going. No legal claims, no numbers like confidence, no markdown.
+- say is what you say out loud on a live video call: ONE short sentence, at most 10 words, naming what you see, like a pro on a site visit ("Mold on the ceiling, and it's spreading." / "Exposed wires by the outlet." / "This spot looks fine."). No safety advice, no legal claims, no numbers.
 
 Reply with ONLY this JSON, no markdown and no prose:
 {"room_guess": "bathroom|kitchen|bedroom|living_room|hallway|exterior|other",

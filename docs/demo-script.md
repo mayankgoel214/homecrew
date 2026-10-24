@@ -52,8 +52,7 @@ Times are where each beat **starts** in the final edit. **VO** = narrator voiceo
 > "HomeCrew is a video call with a crew that knows what to do."
 
 ### 0:20 · The greeting (6 s), no VO
-**CREW (Rosa):** "Hi, I'm Rosa. Walk me around slowly. Start with the room that worries you most."
-**CREW (Theo):** "Theo here. I'll flag anything your landlord has to fix."
+**CREW (Rosa):** "Hi, I'm Rosa. Show me what's wrong."
 
 ### 0:26 · Problem 1: mold (14 s), no VO
 **Screen:** point at the mold and **hold still for 2 seconds**. The gold corner brackets draw (Rosa is looking). Then:
@@ -61,15 +60,15 @@ Times are where each beat **starts** in the final edit. **VO** = narrator voiceo
 - the tag stamps in: `#01 · MOLD GROWTH · LANDLORD FIXES` (or `CALL A PRO` if it's a big patch)
 - the counter top-right goes to **1 FOUND**
 
-**CREW (Rosa):** "I see mold growth on the ceiling here… That's your landlord's to fix."
-**CREW (Theo):** "Section 55.1-1220: your landlord has to keep moisture and mold out, and when mold is visible they have to promptly remediate it."
+**CREW (Rosa):** "Significant mold growth on the wall. Don't touch it. Call a pro."
+**CREW (Theo):** "That's on your landlord. Section 55.1-1220."
 
 > **Edit:** cut the ~4 s while Rosa is analyzing down to about 1 s, or speed it up 2x with a small "2x" label. Don't hide it entirely.
 
 ### 0:40 · Problem 2: exposed wiring (10 s), no VO
 **Screen:** point at the wiring and hold. The box and tag draw: `#02 · EXPOSED WIRING · CALL A PRO`.
-**CREW (Rosa):** "Those exposed wires are a serious hazard… Don't touch it; that needs a licensed pro."
-**CREW (Theo):** "Section 55.1-1220: your landlord has to keep the electrical in good and safe working order."
+**CREW (Rosa):** "Exposed wiring by the outlet. Don't touch it. Call a pro."
+**CREW (Theo):** "Your landlord must fix that. Section 55.1-1220."
 
 > **Edit:** if Theo runs long, cut after "safe working order".
 
@@ -85,7 +84,7 @@ Times are where each beat **starts** in the final edit. **VO** = narrator voiceo
 
 ### 1:05 · Hang up (5 s)
 **Screen:** tap the red **end call** button. The case file opens: "Case file" + the brass **No. XXXX** stamp + the verdict.
-**CREW (June):** "June here. 3 things to put in your repair letter. Your case file is ready."
+**CREW (June):** "Got it. Your case file is ready."
 
 ### 1:10 · The report + how it works (27 s)
 **Screen, in order, slowly:**

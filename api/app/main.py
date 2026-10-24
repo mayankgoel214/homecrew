@@ -142,7 +142,6 @@ async def add_frame(
     if live and not _worth_keeping(case, result.issues):
         if not result.issues and _quiet_for(case, "inspector", LIVE_CLEAN_COMMENT_SECONDS):
             await asyncio.to_thread(crew.inspector_report, case_id, "", 0, result.room_guess, [], result.say)
-            await asyncio.to_thread(_next_checklist_item, case_id)
         return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
 
     case, added = await asyncio.to_thread(
@@ -153,14 +152,12 @@ async def add_frame(
         crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues, result.say)
     if live and result.issues and case.renter:
         await asyncio.to_thread(crew.lawyer_quick_take, case_id, result.issues)
-    if live and not result.issues:
-        await asyncio.to_thread(_next_checklist_item, case_id)
     return {"kept": True, "frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump(),
             "issues": [i.model_dump() for i in result.issues], "say": result.say}
 
 
 LIVE_DUPLICATE_SECONDS = 60
-LIVE_CLEAN_COMMENT_SECONDS = 25
+LIVE_CLEAN_COMMENT_SECONDS = 75
 
 
 def _seconds_since(iso: str) -> float:

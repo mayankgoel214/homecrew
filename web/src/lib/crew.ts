@@ -250,6 +250,9 @@ export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
         };
         audio.onended = audio.onerror = done;
         audio.src = url;
+        // A touch faster than natural keeps the call moving; pitch is preserved.
+        audio.playbackRate = 1.12;
+        (audio as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
         audio.play().catch(() => {
           done();
         });
