@@ -122,6 +122,9 @@ def emergency_in(text: str, spoken: bool = True) -> Emergency | None:
     return None
 
 
+GENERIC_PRO = "Have a professional take a look."
+
+
 def classify(issue_type: str, label: str, note: str, severity: int, renter: bool) -> dict:
     """Returns {"tier", "headline", "steps"} for one finding."""
     if emergency := emergency_in(f"{label} {note}", spoken=False):
@@ -153,7 +156,7 @@ def classify(issue_type: str, label: str, note: str, severity: int, renter: bool
 
     if steps:
         return {"tier": "diy", "headline": "You can handle this yourself.", "steps": steps}
-    return {"tier": "pro", "headline": "Have a professional take a look.", "steps": []}
+    return {"tier": "pro", "headline": GENERIC_PRO, "steps": []}
 
 
 REFUSAL_TOPICS = [

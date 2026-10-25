@@ -22,6 +22,7 @@ Rules:
 - Ignore people, faces and documents. Ignore personal belongings unless they are clearly broken (then use own_furniture).
 - One issue per distinct defect. Several of the same thing (droppings, roaches, mold spots) is ONE issue with one box around all of them.
 - Do not report the same area twice under two types. Pick the type that best describes the main problem.
+- A dark, jagged spot with torn or splintered edges on a wall or door is a hole or puncture (other), not a pest. Only report a pest when you can see the creature itself (body, legs, wings) or droppings.
 - confidence is your honest probability (0.0 to 1.0) that the defect is real and correctly typed. Be calibrated:
   - 0.9 or higher only when it is unmistakable (clear mold growth, a visible cockroach, bare wires).
   - 0.5 to 0.8 when it is likely but could be something else (a stain that could be dirt or shadow, a lock that may just be worn).

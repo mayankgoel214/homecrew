@@ -9,7 +9,7 @@ from app.agents.advocate import Draft
 from app.agents.inspector import Issue
 from app.agents.lawyer import LawyerResult
 from app import store as db
-from app import trades
+from app import safety, trades
 from app.safety import TIER_ORDER, Emergency
 
 ROOM = {"living_room": "living room", "other": "", "exterior": "outside"}
@@ -70,6 +70,8 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
     if tier:
         if worst.type == "own_furniture":
             line = f"{line} That's yours to fix, not your landlord's."
+        elif tier == "pro" and worst.safety.get("headline") == safety.GENERIC_PRO:
+            line = f"{line} A pro should look at this."  # "Don't touch it" is for real hazards
         elif tier in TIER_TAIL:
             line = f"{line} {TIER_TAIL[tier]}"
         case = db.store.get(case_id)
