@@ -36,6 +36,15 @@ TIER_TAIL = {  # Rosa only adds a tail when it changes what you should do; Theo 
     "pro": "Don't touch it.",
     "diy": "You can fix this one.",
 }
+# Spoken how-to for fix-it-yourself problems, on calls where nobody else will follow up (an owner's
+# call, or a trade expert like Marco). A few seconds each; the full steps are in the case file.
+HOW_TO = {
+    "clogged_drain": "Pull the stopper and clear the gunk, then plunge it fifteen times. Don't mix drain cleaners.",
+    "water_damage": "Find what's leaking and stop it first. Dry it out, then repaint once it's fully dry.",
+    "mold": "Scrub it with soap and water, wearing gloves, then dry the spot completely.",
+    "pest": "Seal up food, clear crumbs, and set traps along the walls.",
+    "own_furniture": "Tighten the screws or reglue the joint, and don't sit on it till then.",
+}
 
 
 def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, issues: list[Issue],
@@ -63,6 +72,9 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
             line = f"{line} That's yours to fix, not your landlord's."
         elif tier in TIER_TAIL:
             line = f"{line} {TIER_TAIL[tier]}"
+        case = db.store.get(case_id)
+        if tier == "diy" and worst.type in HOW_TO and (case.trade != "general" or not case.renter):
+            line = f"{line} {HOW_TO[worst.type]}"
         refs["tier"] = tier
     if theo_covers(db.store.get(case_id), issues):  # hand over only when Theo will actually answer
         line += " @Lawyer"

@@ -230,3 +230,14 @@ def test_own_furniture_is_yours_no_theo_no_letter(client, monkeypatch):
     client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_B, "image/jpeg")})
     case = client.post(f"/cases/{case_id}/lawyer").json()
     assert [f["issue_type"] for f in case["legal"]["findings"]] == ["other"]  # the chair stays out of the law
+
+
+def test_plumber_says_how_to_fix_a_clogged_drain(client, monkeypatch):
+    drain = Issue(type="clogged_drain", label="clogged sink", severity=2, confidence=0.9, evidence_note="Standing water.")
+    case_id = client.post("/cases").json()["id"]
+    client.post(f"/cases/{case_id}/call/start", json={"trade": "plumber", "renter": True, "problem": "my sink won't drain"})
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
+        room_guess="kitchen", issues=[drain], model="fake", say="Standing water in the sink."))
+    client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_A, "image/jpeg")})
+    line = [m for m in client.get(f"/cases/{case_id}").json()["chat"] if m["kind"] == "message"][-1]["text"]
+    assert "You can fix this one." in line and "plunge" in line
