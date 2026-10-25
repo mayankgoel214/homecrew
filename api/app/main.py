@@ -345,9 +345,9 @@ def verify_case(case_id: str) -> dict:
 
 @app.post("/cases/{case_id}/lawyer", dependencies=[Depends(rate_limit("lawyer"))])
 def case_lawyer(case_id: str) -> dict:
-    issues, refs = _case(case_id).active_issues()
+    issues, refs = _case(case_id).landlord_issues()
     if not issues:
-        raise HTTPException(400, "No findings in this case yet")
+        raise HTTPException(400, "Nothing here for your landlord to fix")
     if len(issues) > MAX_ISSUES:
         raise HTTPException(413, f"Too many findings ({len(issues)}); dismiss some (max {MAX_ISSUES})")
     store.post(case_id, "lawyer", f"Reviewing {len(issues)} finding{'s' if len(issues) != 1 else ''}…", kind="status")
@@ -364,7 +364,7 @@ def case_lawyer(case_id: str) -> dict:
         stale = False  # reset on transaction retries
         # Photos may have been added or findings dismissed while Gemma was working. Saving this
         # review would then pair the wrong findings with the wrong statutes, so drop it.
-        if case.active_issues()[1] != refs:
+        if case.landlord_issues()[1] != refs:
             stale = True
             return
         case.legal, case.legal_refs, case.draft = result, refs, None
@@ -382,7 +382,7 @@ def case_advocate(case_id: str, tenant: advocate.TenantInfo) -> dict:
     case = _case(case_id)
     if not case.legal:
         raise HTTPException(409, "Run the legal review first")
-    issues, refs = case.active_issues()
+    issues, refs = case.landlord_issues()
     if refs != case.legal_refs:
         raise HTTPException(409, "The evidence changed since the legal review. Run it again.")
     store.post(case_id, "advocate", "Drafting your letter and complaint…", kind="status")

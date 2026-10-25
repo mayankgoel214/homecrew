@@ -13,12 +13,13 @@ Allowed issue types:
 - missing_smoke_detector: empty smoke detector mount or dangling or disconnected detector
 - accessibility_barrier: broken handrail, damaged stairs, trip hazards
 - clogged_drain: a sink, tub or shower holding standing water, or a drain that's visibly blocked
-- other: another clear habitability or safety defect
+- own_furniture: damage to the renter's own furniture or belongings (a broken chair, table, couch, lamp). Not part of the home itself.
+- other: another clear habitability or safety defect in the home itself (doors, walls, floors, fixtures)
 
 Rules:
 - Report ONLY what you can actually see. Never guess at things outside the frame. Never invent an issue.
 - If the photo shows no defect, return an empty "issues" list. A clean room is a valid answer.
-- Ignore people, faces, documents and personal belongings. Do not describe them.
+- Ignore people, faces and documents. Ignore personal belongings unless they are clearly broken (then use own_furniture).
 - One issue per distinct defect. Several of the same thing (droppings, roaches, mold spots) is ONE issue with one box around all of them.
 - Do not report the same area twice under two types. Pick the type that best describes the main problem.
 - confidence is your honest probability (0.0 to 1.0) that the defect is real and correctly typed. Be calibrated:

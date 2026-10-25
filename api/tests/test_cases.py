@@ -212,3 +212,21 @@ def test_snapshot_gets_theo_and_june_and_rosa_only_hands_over_when_he_answers(cl
     assert chat[-3]["text"].endswith("@Lawyer")
     chat = [m for m in snap(IMG_B) if m["kind"] == "message"]  # same problem again: Theo has said it
     assert chat[-1]["agent"] == "inspector" and "@Lawyer" not in chat[-1]["text"]
+
+
+def test_own_furniture_is_yours_no_theo_no_letter(client, monkeypatch):
+    chair = Issue(type="own_furniture", label="broken chair", severity=2, confidence=0.9, evidence_note="Chair leg snapped.")
+    door = Issue(type="other", label="broken door", severity=3, confidence=0.9, evidence_note="Door split near hinge.")
+    case_id = client.post("/cases").json()["id"]
+    client.post(f"/cases/{case_id}/call/start", json={"trade": "general", "renter": True})
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
+        room_guess="living room", issues=[chair], model="fake", say="That chair leg is snapped."))
+    client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_A, "image/jpeg")})
+    chat = [m for m in client.get(f"/cases/{case_id}").json()["chat"] if m["kind"] == "message"]
+    assert chat[-1]["agent"] == "inspector" and "not your landlord's" in chat[-1]["text"]
+    assert "@Lawyer" not in chat[-1]["text"]
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
+        room_guess="hall", issues=[door], model="fake", say="The door is split."))
+    client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_B, "image/jpeg")})
+    case = client.post(f"/cases/{case_id}/lawyer").json()
+    assert [f["issue_type"] for f in case["legal"]["findings"]] == ["other"]  # the chair stays out of the law

@@ -85,6 +85,12 @@ class Case(BaseModel):
                     refs.append({"frame_id": f.id, "issue_index": i})
         return issues, refs
 
+    def landlord_issues(self) -> tuple[list[Issue], list[dict]]:
+        """What the legal review and the letter cover: everything except fix-it-yourself findings
+        (your own broken chair is not your landlord's problem)."""
+        pairs = [(i, r) for i, r in zip(*self.active_issues()) if not (i.safety and i.safety.get("tier") == "diy")]
+        return [i for i, _ in pairs], [r for _, r in pairs]
+
     def invalidate(self) -> None:
         """Evidence changed: the legal review and paperwork must be redone."""
         self.legal, self.legal_refs, self.draft = None, [], None

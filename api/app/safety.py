@@ -90,6 +90,8 @@ SAFE_STEPS: dict[str, list[str]] = {
     "missing_smoke_detector": ["Put up a battery smoke alarm today as a stopgap.",
                                "Test it with its button."],
     "accessibility_barrier": ["Mark it and avoid it until it's fixed, especially at night."],
+    "own_furniture": ["This is your own furniture, so fixing or replacing it is up to you, not your landlord.",
+                      "Tighten loose screws or reglue a cracked joint; stop using it if it wobbles under weight."],
     "clogged_drain": ["Pull out the stopper and clear hair or gunk by hand, with gloves on.",
                       "Use a cup plunger: a little water in the sink, cover the overflow hole, plunge 15 to 20 times.",
                       "Don't mix drain cleaners, and don't use one after plunging. Still slow? Call your landlord or a plumber."],

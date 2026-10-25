@@ -180,7 +180,7 @@ export default function Report({ kase, renter, autoReview, onChange }: { kase: C
 
       <ul className="flex flex-col gap-2" aria-label="Problems">
         {rows.map((row, i) => (
-          <FindingRow key={i} row={row} kaseId={kase.id} open={open === i} onToggle={() => setOpen(open === i ? null : i)} lawPending={renter && (reviewing || !kase.legal)} />
+          <FindingRow key={i} row={row} kaseId={kase.id} open={open === i} onToggle={() => setOpen(open === i ? null : i)} lawPending={renter && row.issue.safety?.tier !== "diy" && (reviewing || !kase.legal)} />
         ))}
       </ul>
 

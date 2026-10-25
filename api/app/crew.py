@@ -59,7 +59,9 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
         first = " ".join(words[:8]).rstrip(",;:") + "."
     line = first or f"{issues[0].label[:1].upper()}{issues[0].label[1:]}."
     if tier:
-        if tier in TIER_TAIL:
+        if worst.type == "own_furniture":
+            line = f"{line} That's yours to fix, not your landlord's."
+        elif tier in TIER_TAIL:
             line = f"{line} {TIER_TAIL[tier]}"
         refs["tier"] = tier
     if theo_covers(db.store.get(case_id), issues):  # hand over only when Theo will actually answer
