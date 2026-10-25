@@ -34,7 +34,7 @@ export default function EvidenceLedger({ kase, onChange }: { kase: Case; onChang
   }
 
   return (
-    <Panel agent="inspector" labelledBy="ledger-heading">
+    <Panel labelledBy="ledger-heading">
       <SectionHeader
         agent="inspector"
         id="ledger-heading"

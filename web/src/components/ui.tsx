@@ -6,7 +6,7 @@ import { PERSONAS, type AgentId } from "@/lib/crew";
 import type { Tier } from "@/lib/api";
 import { TIER } from "@/lib/safety";
 
-export function Panel({ labelledBy, children, className = "" }: { agent?: AgentId; labelledBy: string; children: React.ReactNode; className?: string }) {
+export function Panel({ labelledBy, children, className = "" }: { labelledBy: string; children: React.ReactNode; className?: string }) {
   return (
     <section aria-labelledby={labelledBy} className={`rounded-lg border border-hair bg-surface-1 p-4 ${className}`}>
       {children}

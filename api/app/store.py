@@ -69,7 +69,6 @@ class Case(BaseModel):
     chat: list[ChatMessage] = []
     trade: str = "general"  # which expert the tenant called (app.trades)
     renter: bool = True  # landlord duties only apply to renters
-    checklist_step: int = 0  # how far the expert's walk-through has got
     call_seq: int = 0  # chat length when the current call started (lines before it are earlier calls)
     call_started_at: str = ""  # duplicate findings are only skipped within the current call
 

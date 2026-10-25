@@ -5,18 +5,13 @@ generated, so the chat can never say something the evidence or the statutes don'
 """
 
 import re
+
+from app import trades
+from app import store as db
 from app.agents.advocate import Draft
 from app.agents.inspector import Issue
 from app.agents.lawyer import LawyerResult
-from app import store as db
-from app import safety, trades
 from app.safety import TIER_ORDER, Emergency
-
-ROOM = {"living_room": "living room", "other": "", "exterior": "outside"}
-
-
-def _pct(x: float) -> str:
-    return f"{round(x * 100)}%"
 
 
 def inspector_looking(case_id: str, photo_number: int) -> None:
@@ -47,8 +42,7 @@ HOW_TO = {
 }
 
 
-def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, issues: list[Issue],
-                     say: str = "") -> None:
+def inspector_report(case_id: str, frame_id: str, issues: list[Issue], say: str = "") -> None:
     """ONE spoken line per photo: what the expert sees plus a short safety tail. The spoken line
     comes from Gemma (in character); the tail comes from the router (app.safety), never the model.
     Uncertainty and full steps live in the case file, not in the call."""
@@ -62,6 +56,7 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
                       refs={**refs, "emergency": worst.safety["emergency"]})
         return
     tier = worst.safety["tier"] if worst else None
+    case = db.store.get(case_id)
     first = re.split(r"(?<=[.!?])\s", _short(say).strip())[0] if say else ""
     words = first.split()
     if len(words) > 8:  # keep each finding to a few seconds of speech
@@ -70,15 +65,14 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
     if tier:
         if worst.type == "own_furniture":
             line = f"{line} That's yours to fix, not your landlord's."
-        elif tier == "pro" and worst.safety.get("headline") == safety.GENERIC_PRO:
+        elif tier == "pro" and worst.safety.get("generic"):
             line = f"{line} A pro should look at this."  # "Don't touch it" is for real hazards
         elif tier in TIER_TAIL:
             line = f"{line} {TIER_TAIL[tier]}"
-        case = db.store.get(case_id)
         if tier == "diy" and worst.type in HOW_TO and (case.trade != "general" or not case.renter):
             line = f"{line} {HOW_TO[worst.type]}"
         refs["tier"] = tier
-    if theo_covers(db.store.get(case_id), issues):  # hand over only when Theo will actually answer
+    if theo_covers(case, issues):  # hand over only when Theo will actually answer
         line += " @Lawyer"
     db.store.post(case_id, "inspector", line, refs=refs)
 
@@ -87,19 +81,10 @@ def emergency(case_id: str, e: Emergency) -> None:
     db.store.post(case_id, "inspector", e.title, kind="emergency", refs={"emergency": e.kind})
 
 
-def checklist_prompt(case_id: str, trade_id: str, step: int) -> None:
-    items = trades.get(trade_id).checklist
-    if step < len(items):
-        db.store.post(case_id, "inspector", f"Next, show me {items[step]}.")
-
-
-
-# What Theo actually says on the call: one beat, about 6 words. The full explanation is in the
-# case file; on the call he just confirms whose problem it is and the section.
-# The hand-off on every finding: Rosa says what she sees, Theo names the Virginia rule, June
-# says what she's doing about it. Theo's rules restate specific subsections of the cached statute
-# text (§ 55.1-1220 A.2/A.4/A.5/A.7/A.8, § 55.1-1244.1 B); the call screen shows the citation as a
-# card while he speaks, so the spoken line can stay short.
+# The hand-off on every finding: Rosa says what she sees, Theo names the Virginia rule in one short
+# beat, June says what she's doing about it. Theo's rules restate specific subsections of the cached
+# statute text (§ 55.1-1220 A.2/A.4/A.5/A.7/A.8, § 55.1-1244.1 B); the call screen shows the citation
+# as a card while he speaks, and the full explanation is in the case file.
 RULES: dict[str, tuple[str, str, str]] = {  # type -> (section, spoken rule, on-screen rule)
     "mold": ("55.1-1220", "the landlord must fix visible mold.", "Prevent moisture; promptly remediate visible mold (A)(5)"),
     "water_damage": ("55.1-1220", "the landlord must keep moisture out.", "Prevent moisture and mold (A)(5)"),

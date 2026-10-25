@@ -78,7 +78,7 @@ function FrontHair({ l }: { l: Look }) {
   }
 }
 
-function Hat({ l }: { l: Look }) {
+function Headwear({ l }: { l: Look }) {
   const c = l.hatColor ?? "#888";
   switch (l.hat) {
     case "hard":
@@ -193,7 +193,7 @@ export default function Character({ agent, speaking, trade }: { agent: AgentId; 
       {/* soft shading on one side of the face */}
       <path d="M150 100c0 32-22 52-50 53 22-8 38-28 40-56z" fill={l.shade} opacity="0.55" />
       <FrontHair l={l} />
-      <Hat l={l} />
+      <Headwear l={l} />
       {l.earrings && (
         <g fill={l.earrings}>
           <circle cx="46" cy="120" r="4" />

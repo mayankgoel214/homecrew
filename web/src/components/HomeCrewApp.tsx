@@ -65,7 +65,7 @@ export default function HomeCrewApp() {
 
   const { messages } = useCrewMessages(kase?.id ?? null, kase?.chat ?? NO_CHAT);
   // The crew only talks during the call; the case file is silent (you narrate it, or read it).
-  const playback = useCrewPlayback(messages, historyUpTo.current, voice, view === "call");
+  const playback = useCrewPlayback(kase?.id ?? null, messages, historyUpTo.current, voice, view === "call");
 
   async function start(o: StartOptions) {
     const { source: src, trade: t, renter: rent, problem = "" } = o;

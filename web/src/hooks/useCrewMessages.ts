@@ -7,7 +7,6 @@ import type { ChatMessage } from "@/lib/api";
  *  carried (a fallback for connections that hold the stream back). Ordered and de-duplicated. */
 export function useCrewMessages(caseId: string | null, saved: ChatMessage[]) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [connected, setConnected] = useState(false);
 
   const merge = (incoming: ChatMessage[]) =>
     setMessages((prev) => {
@@ -21,13 +20,11 @@ export function useCrewMessages(caseId: string | null, saved: ChatMessage[]) {
     if (!caseId) return; // no case until the first photo
     // EventSource reconnects on its own and sends Last-Event-ID, so the server only replays what we missed.
     const source = new EventSource(`/api/cases/${caseId}/stream`);
-    source.onopen = () => setConnected(true);
-    source.onerror = () => setConnected(false);
     source.addEventListener("chat", (e) => merge([JSON.parse((e as MessageEvent).data)]));
     return () => source.close();
   }, [caseId]);
 
   useEffect(() => merge(saved), [saved]);
 
-  return { messages, connected };
+  return { messages };
 }

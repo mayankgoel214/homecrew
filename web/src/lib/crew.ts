@@ -59,7 +59,7 @@ export const TRADES: { id: TradeId; name: string; role: string; accent: string; 
 ];
 
 /** Put the chosen expert in the inspector's seat. Everything that reads PERSONAS.inspector
- *  (tiles, captions, transcript, voice) picks it up on the next render. */
+ *  (badges, captions, transcript, voice) picks it up on the next render. */
 export function applyTrade(id: TradeId) {
   const t = TRADES.find((x) => x.id === id) ?? TRADES[0];
   Object.assign(PERSONAS.inspector, { name: t.name, role: t.role, accent: t.accent, trade: t.id, tagline: t.checks });

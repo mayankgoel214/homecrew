@@ -44,7 +44,6 @@ export type LawyerResult = {
   disclaimer: string;
 };
 
-export type Statute = { section: string; title: string; text: string; url: string; upcoming_change: string | null };
 
 export type TenantInfo = {
   tenant_name: string;
@@ -165,6 +164,3 @@ export const exportUrl = (
   kind: "letter.pdf" | "complaint.pdf" | "deadlines.ics" | "evidence.json",
 ) => `/api/cases/${caseId}/export/${kind}`;
 
-export async function getStatute(section: string): Promise<Statute> {
-  return call(`/api/statutes/${encodeURIComponent(section)}`, undefined, `Loading § ${section}`);
-}

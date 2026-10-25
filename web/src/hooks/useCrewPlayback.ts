@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/api";
 import { PERSONAS, isAgent, silentVoice, type AgentId, type CrewVoice } from "@/lib/crew";
 
-const TOOL_MS = 1300; // a statute lookup flashes on Theo's tile; it isn't read aloud
+const TOOL_MS = 1300; // a statute lookup flashes on Theo's badge; it isn't read aloud
 
 /** Plays crew messages one at a time, like people taking turns on a call.
  *  Lines said before `historyUpTo` are history: shown in the transcript, never replayed. */
-export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, voice: CrewVoice, active = true) {
+export function useCrewPlayback(caseId: string | null, messages: ChatMessage[], historyUpTo: number, voice: CrewVoice, active = true) {
   const enqueued = useRef(new Set<number>());
   const queue = useRef<ChatMessage[]>([]);
   const playing = useRef(false);
@@ -16,7 +16,6 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
   const [current, setCurrent] = useState<ChatMessage | null>(null); // caption stays until the next line
   const [speaking, setSpeaking] = useState(false);
   const [tool, setTool] = useState<string | null>(null);
-  const [backlog, setBacklog] = useState(0);
 
   useEffect(() => {
     voiceRef.current = voice;
@@ -31,7 +30,6 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
   const pump = useCallback(async () => {
     if (playing.current) return;
     const next = queue.current.shift();
-    setBacklog(queue.current.length);
     if (!next) return;
     playing.current = true;
     const hurry = queue.current.length > 4; // catching up on a burst: move faster
@@ -52,6 +50,12 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
     pump();
   }, []);
 
+  // A new case numbers its lines from 0 again: forget what the last case played.
+  useEffect(() => {
+    enqueued.current.clear();
+    queue.current = [];
+  }, [caseId]);
+
   useEffect(() => {
     let added = false;
     for (const m of messages) {
@@ -62,10 +66,7 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
       if (m.kind === "message" && isAgent(m.agent)) voiceRef.current.prepare?.(m.text, PERSONAS[m.agent]);
       added = true;
     }
-    if (added) {
-      setBacklog(queue.current.length);
-      pump();
-    }
+    if (added) pump();
   }, [messages, historyUpTo, pump, active]);
 
   // Leaving the call cuts everyone off at once.
@@ -73,7 +74,6 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
     if (active) return;
     queue.current = [];
     voiceRef.current.cancel();
-    setBacklog(0);
     setSpeaking(false);
     setCurrent(null);
   }, [active]);
@@ -81,8 +81,7 @@ export function useCrewPlayback(messages: ChatMessage[], historyUpTo: number, vo
   const skip = useCallback(() => {
     queue.current = [];
     voiceRef.current.cancel();
-    setBacklog(0);
   }, []);
 
-  return { current, speaking, tool, thinking, backlog, skip };
+  return { current, speaking, tool, thinking, skip };
 }

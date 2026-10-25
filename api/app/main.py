@@ -143,7 +143,7 @@ async def add_frame(
     # Re-read: another frame (a tapped snapshot, say) may have been recorded while Gemma was looking.
     if live and not _worth_keeping(await asyncio.to_thread(_case, case_id), result.issues):
         if not result.issues and _quiet_for(case, "inspector", LIVE_CLEAN_COMMENT_SECONDS):
-            await asyncio.to_thread(crew.inspector_report, case_id, "", 0, result.room_guess, [], result.say)
+            await asyncio.to_thread(crew.inspector_report, case_id, "", [], result.say)
         return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
 
     case, added = await asyncio.to_thread(
@@ -151,7 +151,7 @@ async def add_frame(
         case_id, data, client_sha256, captured_at[:40] or None, result.room_guess, result.issues, result.model,
     )
     await asyncio.to_thread(
-        crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues, result.say)
+        crew.inspector_report, case_id, added.id, result.issues, result.say)
     if result.issues:  # live capture or a tapped snapshot: Theo and June answer either way
         await asyncio.to_thread(crew.lawyer_quick_take, case_id, result.issues)
     return {"kept": True, "frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump(),
@@ -186,18 +186,6 @@ def _quiet_for(case: Case, agent: str, seconds: float) -> bool:
     return not said or _seconds_since(said[-1].ts) > seconds
 
 
-def _next_checklist_item(case_id: str) -> None:
-    """Move the expert's walk-through on ("Next, could you show me the thermostat?")."""
-    step = {}
-
-    def change(case: Case):
-        case.checklist_step += 1
-        step.update(trade=case.trade, n=case.checklist_step)
-
-    _update(case_id, change)
-    crew.checklist_prompt(case_id, step["trade"], step["n"])
-
-
 class CallStart(BaseModel):
     trade: str = "general"
     renter: bool = True
@@ -211,7 +199,6 @@ def call_start(case_id: str, body: CallStart | None = None) -> dict:
     def change(case: Case):
         case.trade = trades.get(body.trade).id
         case.renter = body.renter
-        case.checklist_step = 0
         case.call_seq = len(case.chat)  # each call is its own conversation
         case.call_started_at = datetime.now(timezone.utc).isoformat()  # sub-second, so back-to-back takes stay apart
 

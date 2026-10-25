@@ -167,7 +167,7 @@ def classify(issue_type: str, label: str, note: str, severity: int, renter: bool
 
     if steps:
         return {"tier": "diy", "headline": "You can handle this yourself.", "steps": steps}
-    return {"tier": "pro", "headline": GENERIC_PRO, "steps": []}
+    return {"tier": "pro", "headline": GENERIC_PRO, "steps": [], "generic": True}
 
 
 REFUSAL_TOPICS = [

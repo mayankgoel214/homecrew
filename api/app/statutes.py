@@ -28,5 +28,3 @@ def va_code_lookup(section: str) -> dict | None:
     return _load()["sections"].get(normalize_section(section))
 
 
-def in_force_on() -> str:
-    return _load()["in_force_on"]
