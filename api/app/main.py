@@ -137,6 +137,7 @@ async def add_frame(
         raise HTTPException(502, str(e)) from e
 
     for issue in result.issues:  # the safety router labels every finding before anyone gives advice
+        issue.type = safety.correct_type(issue.type, issue.label, issue.evidence_note)
         issue.safety = safety.classify(issue.type, issue.label, issue.evidence_note, issue.severity, case.renter)
 
     # Re-read: another frame (a tapped snapshot, say) may have been recorded while Gemma was looking.

@@ -78,3 +78,9 @@ def test_route():
 def test_own_furniture_is_always_diy_even_if_the_note_sounds_structural():
     t = safety.classify("own_furniture", "broken chair", "The chair frame is structurally broken and unsafe.", 3, renter=True)
     assert t["tier"] == "diy"
+
+
+def test_a_hole_with_no_water_is_not_water_damage():
+    assert safety.correct_type("water_damage", "ceiling hole", "A jagged hole in the surface.") == "other"
+    assert safety.correct_type("water_damage", "water stain", "Brown stain from a leak.") == "water_damage"
+    assert safety.correct_type("water_damage", "hole", "Hole with water staining around it.") == "water_damage"

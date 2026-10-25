@@ -71,6 +71,14 @@ if (PROBLEM) {
 }
 log("call started");
 
+// --snap 6: tap the shutter 6 s into the call (a deliberate snapshot, like tapping it on the phone).
+const SNAP = Number(arg("snap", "0"));
+if (SNAP) {
+  await sleep(SNAP * 1000);
+  await page.getByRole("button", { name: "Capture this now" }).click();
+  log("tapped the shutter");
+}
+
 // Wait for the footage to finish, then for the crew to finish talking.
 await page.waitForFunction(() => document.querySelector('video[aria-label="Your camera"]')?.ended === true, null, { timeout: 180000 });
 log("footage ended");

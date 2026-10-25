@@ -123,6 +123,17 @@ def emergency_in(text: str, spoken: bool = True) -> Emergency | None:
 
 
 GENERIC_PRO = "Have a professional take a look."
+_HOLE = re.compile(r"\b(hole|holes|puncture|punctured|gash|dent|crack|cracked)\b", re.I)
+_WATER = re.compile(r"\b(water|stain\w*|leak\w*|damp|moist\w*|wet|drip\w*|mold|mildew|bubbl\w*|sag\w*)\b", re.I)
+
+
+def correct_type(issue_type: str, label: str, note: str) -> str:
+    """Rules the model doesn't always follow, enforced in code: a hole with no sign of water is
+    damage, not water damage (so nobody gets told to go find a leak)."""
+    text = f"{label} {note}"
+    if issue_type == "water_damage" and _HOLE.search(text) and not _WATER.search(text):
+        return "other"
+    return issue_type
 
 
 def classify(issue_type: str, label: str, note: str, severity: int, renter: bool) -> dict:
