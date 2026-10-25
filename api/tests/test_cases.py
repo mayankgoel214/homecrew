@@ -241,3 +241,15 @@ def test_plumber_says_how_to_fix_a_clogged_drain(client, monkeypatch):
     client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_A, "image/jpeg")})
     line = [m for m in client.get(f"/cases/{case_id}").json()["chat"] if m["kind"] == "message"][-1]["text"]
     assert "You can fix this one." in line and "plunge" in line
+
+
+def test_tapping_the_shutter_on_a_problem_already_found_does_not_count_it_twice(client, monkeypatch):
+    case_id = client.post("/cases").json()["id"]
+    client.post(f"/cases/{case_id}/call/start", json={"trade": "general", "renter": True})
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
+        room_guess="hall", issues=[STAIN], model="fake", say="A stain on the wall."))
+    client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_A, "image/jpeg")}, data={"live": "true"})
+    tapped = client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", IMG_B, "image/jpeg")}).json()
+    case = client.get(f"/cases/{case_id}").json()
+    assert tapped["kept"] is False and len(case["frames"]) == 1
+    assert case["chat"][-1]["text"] == "Got it. That's already in your case file."

@@ -141,9 +141,13 @@ async def add_frame(
         issue.safety = safety.classify(issue.type, issue.label, issue.evidence_note, issue.severity, case.renter)
 
     # Re-read: another frame (a tapped snapshot, say) may have been recorded while Gemma was looking.
-    if live and not _worth_keeping(await asyncio.to_thread(_case, case_id), result.issues):
+    worth_keeping = _worth_keeping(await asyncio.to_thread(_case, case_id), result.issues)
+    if live and not worth_keeping:
         if not result.issues and _quiet_for(case, "inspector", LIVE_CLEAN_COMMENT_SECONDS):
             await asyncio.to_thread(crew.inspector_report, case_id, "", [], result.say)
+        return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
+    if result.issues and not worth_keeping and case.call_started_at:  # tapped on a call, already on record
+        await asyncio.to_thread(store.post, case_id, "inspector", "Got it. That's already in your case file.")
         return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
 
     case, added = await asyncio.to_thread(
@@ -174,7 +178,8 @@ def _worth_keeping(case: Case, issues) -> bool:
     recent: set[str] = set()
     for f in case.frames:
         received = case.ledger[f.seq].received_at
-        if case.call_started_at and received < case.call_started_at:
+        # Compare as times, not strings: received_at has whole seconds, call_started_at microseconds.
+        if case.call_started_at and datetime.fromisoformat(received) < datetime.fromisoformat(case.call_started_at).replace(microsecond=0):
             continue  # an earlier call (or take) doesn't count
         if not f.removed and _seconds_since(received) < LIVE_DUPLICATE_SECONDS:
             recent |= {i.type for n, i in enumerate(f.issues) if n not in f.dismissed}

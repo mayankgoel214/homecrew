@@ -55,5 +55,5 @@ def test_letter_modes(monkeypatch):
 def test_ics_escaping_and_folding():
     d = advocate.Deadline(day=NOTICE, title="A; b, c", detail="x" * 200)
     ics = exports.deadlines_ics("id", [d])
-    assert "SUMMARY:HomeCrew: A\; b\\, c" in ics
+    assert r"SUMMARY:HomeCrew: A\; b\, c" in ics
     assert all(len(line.encode()) <= 75 for line in ics.split("\r\n"))
