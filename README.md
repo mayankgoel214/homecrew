@@ -6,7 +6,7 @@ Built at **GDG Build with AI x Hacktoberfest 2026**, Virginia Tech (Oct 24–25,
 Tracks: GDG Best Overall · MLH **Best Use of Gemma 4**.
 
 - **Live app:** https://homecrew-vt.vercel.app (open it on your phone; it uses the camera)
-- **2-minute demo video:** _link added at submission_
+- **2-minute demo video:** https://youtu.be/VmhPm4puuAQ
 
 ---
 
