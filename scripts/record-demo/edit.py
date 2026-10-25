@@ -21,7 +21,7 @@ BADGE_AT = (1205, 40)
 SEGMENTS = [
     ("intro", "renter", 0.0, 4.0, 1),     # crew pops up
     ("intro", "plumber", 1.0, 5.8, 1),
-    ("intro", "owner", 1.0, 5.2, 1),
+    ("intro", "owner3", 1.0, 5.2, 1),
     ("intro", "renter", 4.0, 6.0, 1),     # tap "Start a video call"
     ("renter", "renter", 6.0, 14.6, 1),   # Rosa, Theo, June say hi
     ("renter", "renter", 14.6, 19.4, 3),
@@ -30,10 +30,11 @@ SEGMENTS = [
     ("renter", "renter", 42.3, 47.0, 1),  # chair: "yours to fix"
     ("report", "renter", 47.0, 63.0, 2),  # hang up, verdict, open the door's row
     ("report", "renter", 63.0, 78.2, 4),  # write letter, approve, downloads
-    ("owner", "owner", 4.5, 10.0, 1),     # I RENT -> I OWN, call, Rosa says hi
-    ("owner", "owner", 10.0, 26.8, 6),
-    ("owner", "owner", 26.8, 33.8, 1),    # wall stain + how-to
-    ("owner", "owner", 33.8, 41.5, 3),    # case file: DIY steps
+    ("owner", "owner3", 4.5, 10.0, 1),    # I RENT -> I OWN, call, Rosa says hi
+    ("owner", "owner3", 10.0, 19.2, 6),
+    ("owner", "owner3", 19.2, 23.0, 1),   # hole in the door: "A pro should look at this."
+    ("owner", "owner3", 23.0, 36.0, 6),
+    ("owner", "owner3", 36.0, 42.0, 2),   # case file: needs a licensed pro
     ("plumber", "plumber", 5.8, 9.0, 1),  # type "my sink won't drain"
     ("plumber", "plumber", 9.0, 12.0, 1), # Marco says hi
     ("plumber", "plumber", 12.0, 17.2, 3),
@@ -41,7 +42,7 @@ SEGMENTS = [
     ("plumber", "plumber", 27.3, 32.5, 4),
     ("plumber", "plumber", 32.5, 40.0, 2),  # case file: DIY steps
 ]
-BUILT_SECONDS = 16.0  # "How we built it" slide; the end card takes whatever is left of 2:00
+BUILT_SECONDS = 17.0  # "How we built it" slide; the end card takes whatever is left of 2:00
 
 ENC = ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", "30",
        "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"]

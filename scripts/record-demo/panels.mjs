@@ -45,7 +45,7 @@ const SECTIONS = {
   owner: {
     step: "03 · HOMEOWNER", title: "Own your place?", sub: "Same crew. No landlord, just what's safe to do.",
     right: [callout("SAFETY RULES", "#e0a83a", "Every finding is rated: landlord, call a pro, or fix it yourself."),
-            callout("HOW-TO", "#7ed4a6", "Safe fixes come with spoken steps.")],
+            callout("KNOWS ITS LIMITS", "#ff8a7a", "Some repairs need a licensed pro, and the crew says so.")],
   },
   plumber: {
     step: "04 · ANY PROBLEM", title: "Describe it.", sub: "The right expert picks up.",
