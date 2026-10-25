@@ -57,7 +57,10 @@ def badge(speed):
     return PANELS / f"badge-{label}.png"
 
 
-def phone_segment(i, section, take, start, end, speed):
+FADE = 0.25  # dip to black between sections
+
+
+def phone_segment(i, section, take, start, end, speed, fade_in=False, fade_out=False):
     dur = (end - start) / speed
     x, y, w, h = PHONE
     inputs = ["-loop", "1", "-i", str(PANELS / f"{section}.png"),
@@ -75,6 +78,9 @@ def phone_segment(i, section, take, start, end, speed):
         fade = min(0.04, dur / 4)
         a = (f"[1:a]atrim={start}:{end},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,"
              f"afade=t=in:d={fade},afade=t=out:st={dur - fade}:d={fade}[a]")
+    fades = (f",fade=t=in:d={FADE}" if fade_in else "") + (f",fade=t=out:st={dur - FADE:.3f}:d={FADE}" if fade_out else "")
+    if fades:
+        v = v[: v.rindex("[v]")] + "[vf];[vf]null" + fades + "[v]"
     out = WORK / f"{i:02d}.mp4"
     run([*inputs, "-filter_complex", f"{v};{a}", "-map", "[v]", "-map", "[a]", "-t", f"{dur:.3f}", *ENC, str(out)])
     return out, dur
@@ -83,7 +89,7 @@ def phone_segment(i, section, take, start, end, speed):
 def slide(i, png, dur):
     out = WORK / f"{i:02d}.mp4"
     run(["-loop", "1", "-i", str(PANELS / png), "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-         "-vf", "fps=30,format=yuv420p", "-t", f"{dur:.3f}", *ENC, str(out)])
+         "-vf", f"fps=30,format=yuv420p,fade=t=in:d={FADE},fade=t=out:st={dur - FADE:.3f}:d={FADE}", "-t", f"{dur:.3f}", *ENC, str(out)])
     return out, dur
 
 
@@ -92,7 +98,9 @@ def main():
     parts, t, starts = [], 0.0, {}
     for i, seg in enumerate(SEGMENTS):
         starts.setdefault(seg[0], t)
-        out, dur = phone_segment(i, *seg)
+        first = i == 0 or SEGMENTS[i - 1][0] != seg[0]
+        last = i == len(SEGMENTS) - 1 or SEGMENTS[i + 1][0] != seg[0]
+        out, dur = phone_segment(i, *seg, fade_in=first and i > 0, fade_out=last)
         parts.append(out)
         t += dur
     starts["built"] = t
