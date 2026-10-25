@@ -194,3 +194,21 @@ def test_each_call_is_its_own_conversation(client, monkeypatch):
         return [m["agent"] for m in client.get(f"/cases/{case_id}").json()["chat"][start:]]
 
     assert "lawyer" in call() and "advocate" in call()  # a second take still gets Theo and June
+
+
+def test_snapshot_gets_theo_and_june_and_rosa_only_hands_over_when_he_answers(client, monkeypatch):
+    # The iPhone bug: a tapped snapshot (live=false) got Rosa saying "Theo" and then silence.
+    case_id = client.post("/cases").json()["id"]
+    monkeypatch.setattr(main, "inspect", lambda data, notes="", mime_type="", expert="": InspectorResult(
+        room_guess="living room", issues=[STAIN], model="fake", say="There is a stain on the wall."))
+    client.post(f"/cases/{case_id}/call/start", json={"trade": "general", "renter": True})
+
+    def snap(img):
+        client.post(f"/cases/{case_id}/frames", files={"frame": ("f.jpg", img, "image/jpeg")})
+        return client.get(f"/cases/{case_id}").json()["chat"]
+
+    chat = [m for m in snap(IMG_A) if m["kind"] == "message"]
+    assert [m["agent"] for m in chat[-3:]] == ["inspector", "lawyer", "advocate"]
+    assert chat[-3]["text"].endswith("@Lawyer")
+    chat = [m for m in snap(IMG_B) if m["kind"] == "message"]  # same problem again: Theo has said it
+    assert chat[-1]["agent"] == "inspector" and "@Lawyer" not in chat[-1]["text"]

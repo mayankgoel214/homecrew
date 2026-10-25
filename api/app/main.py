@@ -150,7 +150,7 @@ async def add_frame(
     )
     await asyncio.to_thread(
         crew.inspector_report, case_id, added.id, photo_number, result.room_guess, result.issues, result.say)
-    if live and result.issues and case.renter:
+    if result.issues:  # live capture or a tapped snapshot: Theo and June answer either way
         await asyncio.to_thread(crew.lawyer_quick_take, case_id, result.issues)
     return {"kept": True, "frame": added.model_dump(), "ledger_entry": case.ledger[-1].model_dump(),
             "issues": [i.model_dump() for i in result.issues], "say": result.say}

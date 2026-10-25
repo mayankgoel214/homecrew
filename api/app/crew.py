@@ -62,7 +62,7 @@ def inspector_report(case_id: str, frame_id: str, photo_number: int, room: str, 
         if tier in TIER_TAIL:
             line = f"{line} {TIER_TAIL[tier]}"
         refs["tier"] = tier
-    if tier in ("landlord", "pro"):
+    if theo_covers(db.store.get(case_id), issues):  # hand over only when Theo will actually answer
         line += " @Lawyer"
     db.store.post(case_id, "inspector", line, refs=refs)
 
@@ -97,18 +97,29 @@ TITLES = {"55.1-1220": "Landlord to maintain fit premises", "55.1-1244.1": "Tena
 JUNE_LINES = ["I'll add it to your repair notice. They get 21 days.", "Added to the notice.", "That's in the notice too."]
 
 
-def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
-    """Renters only. Theo names the rule, June says what she'll do, once per kind of problem in
+def theo_covers(case, issues: list[Issue]) -> list[Issue]:
+    """The findings Theo will speak to: renters only, landlord/pro tier, once per kind of problem in
     THIS call (a new take or 'Call again' starts the conversation over)."""
-    case = db.store.get(case_id)
+    if not case.renter:
+        return []
     this_call = [m for m in case.chat if m.seq >= case.call_seq]
     already = {m.refs.get("issue_type") for m in this_call if m.agent == "lawyer"}
-    sections_said = {m.refs.get("section") for m in this_call if m.agent == "lawyer"}
-    n = sum(1 for m in this_call if m.agent == "lawyer" and m.refs.get("issue_type"))  # not his greeting
+    covered = []
     for issue in issues:
         if issue.type in already or not issue.safety or issue.safety["tier"] not in ("landlord", "pro"):
             continue
         already.add(issue.type)
+        covered.append(issue)
+    return covered
+
+
+def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
+    """Theo names the rule, June says what she'll do (see theo_covers for when)."""
+    case = db.store.get(case_id)
+    this_call = [m for m in case.chat if m.seq >= case.call_seq]
+    sections_said = {m.refs.get("section") for m in this_call if m.agent == "lawyer"}
+    n = sum(1 for m in this_call if m.agent == "lawyer" and m.refs.get("issue_type"))  # not his greeting
+    for issue in theo_covers(case, issues):
         section, spoken, card = RULES.get(issue.type, DEFAULT_RULE)
         lead = "Same section:" if section in sections_said else f"Virginia Code {section}:"
         sections_said.add(section)

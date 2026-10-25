@@ -46,17 +46,17 @@ export default function HomeCrewApp() {
 
   useEffect(() => {
     if (read(VOICE_KEY) === "off") setVoiceOn(false);
-    const id = read(CASE_KEY);
-    if (id)
-      getCase(id)
-        .then((c) => {
-          applyTrade(c.trade as TradeId);
-          setTrade(c.trade as TradeId);
-          setRenter(c.renter);
-          setKase(c);
-        })
-        .catch(() => write(CASE_KEY, null));
+    write(CASE_KEY, null); // every visit is a fresh inspection; old cases never resurface
   }, []);
+
+  // During a call, re-read the case every 2 s. The SSE stream can stall on phones behind some
+  // proxies; this guarantees Theo and June's lines arrive within a couple of seconds anyway.
+  useEffect(() => {
+    if (view !== "call" || !kase) return;
+    const id = kase.id;
+    const t = setInterval(() => getCase(id).then(setKase).catch(() => {}), 2000);
+    return () => clearInterval(t);
+  }, [view, kase?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const voice = useMemo(() => {
     const fallback = browserVoice() ?? silentVoice();
@@ -86,6 +86,7 @@ export default function HomeCrewApp() {
       setStartedAt(Date.now());
       setView("call");
       await startCall(c.id, t, rent, problem); // the expert says hello
+      setKase(await getCase(c.id)); // the greeting, without waiting on the stream
     } catch (e) {
       alert(e instanceof Error ? e.message : "Couldn't start the call");
     } finally {

@@ -255,7 +255,12 @@ export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
         audio.playbackRate = 1.12;
         (audio as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
         audio.play().catch(() => {
-          done();
+          // Blocked (iPhone audio rules): say it with the phone's own voice rather than skip it.
+          clearTimeout(safety);
+          audio.onended = audio.onerror = null;
+          stopCurrent = null;
+          setSpeaking(false);
+          fallback.speak(text, persona).then(resolve);
         });
       });
     },
