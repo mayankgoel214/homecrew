@@ -3,7 +3,8 @@
 // Output: out/screen.mp4 (full-resolution phone screen, 780x1688) + out/speech.json (when each crew line
 // started). Then mux.mjs lays the real crew voices onto the video at those moments.
 //
-//   node record.mjs --feed /walkthrough/room1.webm [--url http://localhost:3000] [--renter]
+//   node record.mjs --feed /walkthrough/room1.webm [--url http://localhost:3000] [--out takes/x]
+//                   [--owner] [--problem "my sink won't drain"]
 
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
@@ -15,7 +16,9 @@ const arg = (name, fallback) => {
 };
 const BASE = arg("url", "http://localhost:3000");
 const FEED = arg("feed", "/walkthrough/room1.webm");
-const OUT = new URL("./out/", import.meta.url).pathname;
+const OUT = new URL(`./${arg("out", "out")}/`, import.meta.url).pathname;
+const PROBLEM = arg("problem", "");
+const OWNER = process.argv.includes("--owner");
 mkdirSync(OUT, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -53,7 +56,19 @@ await page.goto(`${BASE}/?feed=${encodeURIComponent(FEED)}`, { waitUntil: "netwo
 log("front page");
 await sleep(5000); // the crew pops up and idles
 
-await page.getByRole("button", { name: "Start a video call" }).click();
+if (OWNER) {
+  await page.getByRole("button", { name: /You rent/ }).click(); // I RENT -> I OWN
+  await sleep(1800);
+}
+if (PROBLEM) {
+  await page.getByRole("button", { name: "Describe a problem instead" }).click();
+  await sleep(900);
+  await page.locator("form input").first().pressSequentially(PROBLEM, { delay: 75 });
+  await sleep(700);
+  await page.getByRole("button", { name: "Call the right expert" }).click();
+} else {
+  await page.getByRole("button", { name: "Start a video call" }).click();
+}
 log("call started");
 
 // Wait for the footage to finish, then for the crew to finish talking.
@@ -70,7 +85,7 @@ await sleep(800);
 
 await page.getByRole("button", { name: "End call" }).click();
 log("hung up");
-await page.getByLabel("Verdict").waitFor({ timeout: 30000 });
+await page.getByLabel("Verdict").waitFor({ timeout: 30000 }).catch(() => log("no findings: report is empty"));
 
 // Let Theo's full review land (rows switch from "checking the law" to a section number).
 await page.waitForFunction(() => !document.body.innerText.includes("CHECKING THE LAW"), null, { timeout: 60000 }).catch(() => {});
@@ -78,13 +93,17 @@ log("report ready");
 await sleep(3500); // hold on the verdict
 
 const firstRow = page.locator('[aria-label="Problems"] li button').first();
-await firstRow.click();
-await sleep(3500);
-await firstRow.click();
-await sleep(1200);
+if (await firstRow.count()) { // open the first finding to show "what to do"
+  await firstRow.click();
+  await sleep(3500);
+  await firstRow.click();
+  await sleep(1200);
+}
 
-await page.getByLabel("Deadlines").scrollIntoViewIfNeeded();
-await sleep(3000);
+if (await page.getByLabel("Deadlines").count()) { // only when something is the landlord's job
+  await page.getByLabel("Deadlines").scrollIntoViewIfNeeded();
+  await sleep(3000);
+}
 
 const write = page.getByRole("button", { name: "Write my letter" });
 if (await write.count()) {

@@ -131,6 +131,8 @@ function FindingRow({ row, kaseId, open, onToggle, lawPending }: { row: Row; kas
 
 export default function Report({ kase, renter, autoReview, onChange }: { kase: Case; renter: boolean; autoReview: boolean; onChange: (c: Case) => void }) {
   const rows = rowsOf(kase);
+  // The law, the clock and the letter only apply when something is the landlord's job.
+  const legal = renter && rows.some((r) => r.issue.safety?.tier !== "diy");
   const [open, setOpen] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const started = useRef(false);
@@ -138,12 +140,12 @@ export default function Report({ kase, renter, autoReview, onChange }: { kase: C
 
   // Right after a call: Theo's full Gemma review runs on its own.
   useEffect(() => {
-    if (!renter || kase.legal || !rows.length || started.current || !autoReview) return;
+    if (!legal || kase.legal || started.current || !autoReview) return;
     started.current = true;
     setReviewing(true);
     runLawyer(kase.id).then(onChange).catch(() => {}).finally(() => setReviewing(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoReview, renter, kase.legal, rows.length]);
+  }, [autoReview, legal, kase.legal]);
 
   if (!rows.length) {
     return <p className="rounded-lg border border-hair bg-surface-1 p-5 text-[15px] text-ink-2">Nothing on record yet. Call the crew and show them around.</p>;
@@ -184,9 +186,9 @@ export default function Report({ kase, renter, autoReview, onChange }: { kase: C
         ))}
       </ul>
 
-      {renter && <DeadlineStrip hasRodentHeat={hasRodentHeat} />}
-      {renter && kase.legal && <Paperwork kase={kase} onChange={onChange} />}
-      {renter && !kase.legal && (
+      {legal && <DeadlineStrip hasRodentHeat={hasRodentHeat} />}
+      {legal && kase.legal && <Paperwork kase={kase} onChange={onChange} />}
+      {legal && !kase.legal && (
         <button
           onClick={() => { started.current = true; setReviewing(true); runLawyer(kase.id).then(onChange).catch(() => {}).finally(() => setReviewing(false)); }}
           disabled={reviewing}

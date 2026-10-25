@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const API = process.argv.includes("--api") ? process.argv[process.argv.indexOf("--api") + 1] : "http://localhost:8000";
-const OUT = new URL("./out/", import.meta.url).pathname;
+const OUT = new URL(`./${process.argv.includes("--out") ? process.argv[process.argv.indexOf("--out") + 1] : "out"}/`, import.meta.url).pathname;
 const { t0, speech } = JSON.parse(readFileSync(`${OUT}/speech.json`, "utf8"));
 
 const inputs = ["-i", `${OUT}/screen.mp4`];

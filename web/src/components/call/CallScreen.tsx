@@ -31,12 +31,17 @@ function useClock(start: number) {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-// If it's audible, the screen shouldn't repeat all of it: the first sentence or two.
+// If it's audible, the screen shouldn't repeat all of it: up to three sentences (enough for an
+// expert's "what to do" step), cut at a sentence boundary.
 function caption(text: string): string {
   const clean = namedMentions(text).replace(/\s*@\w+\s*$/, "").trim();
-  const m = clean.match(/^(.+?[.!?])\s+(.+?[.!?])?/);
-  const short = m ? (m[1].length < 60 && m[2] ? `${m[1]} ${m[2]}` : m[1]) : clean;
-  return short.length > 140 ? short.slice(0, 137).trimEnd() + "…" : short;
+  const sentences = clean.split(/(?<=[.!?])\s+/); // "55.1-1220" has no space after its dot
+  let short = sentences[0].trim();
+  for (const next of sentences.slice(1, 3)) {
+    if ((short + next).length > 160) break;
+    short += " " + next.trim();
+  }
+  return short.length > 170 ? short.slice(0, 167).trimEnd() + "…" : short;
 }
 
 /** Where a normalized box from a captured frame lands on an object-cover <video>. */
@@ -412,7 +417,7 @@ export default function CallScreen({
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.18, ease: SETTLE } }}
                 exit={{ opacity: 0, transition: { duration: 0.12 } }}
               >
-                <p className="line-clamp-2 text-[17px] leading-snug text-ink">
+                <p className="line-clamp-3 text-[17px] leading-snug text-ink">
                   <span className="mr-2 inline-block rounded-sm px-1.5 py-0.5 align-[2px] font-mono text-[10px] font-medium"
                     style={{ background: speaker?.accent ?? "#B8B0A2", color: "#0C0B09" }}>
                     {speaker ? speaker.name.toUpperCase() : current.agent === "you" ? "YOU" : "HOMECREW"}
