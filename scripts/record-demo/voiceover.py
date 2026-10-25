@@ -73,8 +73,11 @@ def chunks(text, limit=62):
     return merged
 
 
-TRIM = ("silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-        "silenceremove=start_periods=1:start_threshold=-45dB,areverse")
+# Phone and WhatsApp memos: cut rumble and hiss, take out steady background noise (afftdn tracks it),
+# then trim the silence at both ends.
+CLEAN = "highpass=f=85,lowpass=f=9000,afftdn=nr=14:nf=-38:tn=1"
+TRIM = ("silenceremove=start_periods=1:start_threshold=-40dB,areverse,"
+        "silenceremove=start_periods=1:start_threshold=-40dB,areverse")
 WORK = HERE / "edit" / "vo"
 
 
@@ -82,7 +85,8 @@ def prepare(name, f, slot_len):
     """Silence-trimmed WAV, tempo-fitted to the slot. Returns (file, spoken seconds, tempo)."""
     WORK.mkdir(parents=True, exist_ok=True)
     trimmed = WORK / f"{name}-trim.wav"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(f), "-af", TRIM, "-ar", "48000", str(trimmed)], check=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(f), "-af", f"{CLEAN},{TRIM}", "-ar", "48000", str(trimmed)],
+                   check=True)
     spoken = length(trimmed)
     tempo = min(1.25, max(1.0, spoken / (slot_len - 0.1)))
     fitted = WORK / f"{name}.wav"
@@ -94,7 +98,7 @@ def prepare(name, f, slot_len):
 def main(folder):
     found = []
     for name, slot in SLOTS.items():
-        files = [p for p in Path(folder).glob(f"{name}.*") if p.suffix.lower() in (".m4a", ".mp3", ".wav", ".aac", ".caf")]
+        files = [p for p in Path(folder).glob(f"{name}.*") if p.suffix.lower() in (".m4a", ".mp3", ".wav", ".aac", ".caf", ".opus", ".ogg")]
         if files:
             found.append((name, files[0], slot))
     if not found:
@@ -132,7 +136,7 @@ def main(folder):
     subprocess.run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
                     "-map", f"[{prev}]" if captions else "0:v", "-map", "[a]",
                     "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-                    "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(OUT)], check=True)
+                    "-c:a", "aac", "-b:a", "192k", "-t", "120", "-movflags", "+faststart", str(OUT)], check=True)
     for _, text, a, b in captions:
         print(f"    {a:6.2f}-{b:6.2f}  {text}")
     print(f"{OUT}  {length(OUT):.2f}s")
