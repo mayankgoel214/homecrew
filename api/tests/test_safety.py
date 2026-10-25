@@ -73,3 +73,8 @@ def test_route():
     c = TestClient(main.app)
     assert c.post("/route", json={"text": "I smell gas"}).json()["emergency"] == "gas"
     assert c.post("/route", json={"text": "toilet keeps running"}).json()["trade"] == "plumber"
+
+
+def test_own_furniture_is_always_diy_even_if_the_note_sounds_structural():
+    t = safety.classify("own_furniture", "broken chair", "The chair frame is structurally broken and unsafe.", 3, renter=True)
+    assert t["tier"] == "diy"

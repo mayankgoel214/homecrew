@@ -118,6 +118,8 @@ export default function CallScreen({
 
   const kept = kase.frames.filter((f) => !f.removed);
   const findings = kept.flatMap((f) => f.issues.filter((_, n) => !f.dismissed.includes(n)));
+  const findingCount = useRef(0); // read when an analysis returns, not when its capture started
+  findingCount.current = findings.length;
   const caseNo = kase.id.slice(0, 4).toUpperCase();
 
   // Camera (or demo feed) for as long as the call is up.
@@ -190,7 +192,7 @@ export default function CallScreen({
     setLooking(true);
     try {
       const result = await addFrame(kase.id, photo.blob, photo.sha256, live);
-      if (result.issues.length) setMark({ id: Date.now(), issues: result.issues, number: findings.length + 1, photo, onFeed });
+      if (result.issues.length) setMark({ id: Date.now(), issues: result.issues, number: findingCount.current + 1, photo, onFeed });
       if (result.kept) onCaseChange(await getCase(kase.id));
       setProblem("");
     } catch (e) {

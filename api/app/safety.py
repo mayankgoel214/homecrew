@@ -128,6 +128,8 @@ def classify(issue_type: str, label: str, note: str, severity: int, renter: bool
         return {"tier": "emergency", "headline": emergency.title, "steps": emergency.steps, "emergency": emergency.kind}
 
     steps = SAFE_STEPS.get(issue_type, [])
+    if issue_type == "own_furniture":  # the renter's own things: never the landlord's or a pro's job
+        return {"tier": "diy", "headline": "This is yours to fix, not your landlord's.", "steps": steps}
     big_mold = issue_type == "mold" and severity >= 4  # stand-in for "bigger than ~10 sq ft"
     needs_pro = issue_type in ALWAYS_PRO or big_mold or bool(NEVER_DIY.search(f"{label} {note}"))
 
