@@ -139,7 +139,8 @@ async def add_frame(
     for issue in result.issues:  # the safety router labels every finding before anyone gives advice
         issue.safety = safety.classify(issue.type, issue.label, issue.evidence_note, issue.severity, case.renter)
 
-    if live and not _worth_keeping(case, result.issues):
+    # Re-read: another frame (a tapped snapshot, say) may have been recorded while Gemma was looking.
+    if live and not _worth_keeping(await asyncio.to_thread(_case, case_id), result.issues):
         if not result.issues and _quiet_for(case, "inspector", LIVE_CLEAN_COMMENT_SECONDS):
             await asyncio.to_thread(crew.inspector_report, case_id, "", 0, result.room_guess, [], result.say)
         return {"kept": False, "issues": [i.model_dump() for i in result.issues], "say": result.say}
