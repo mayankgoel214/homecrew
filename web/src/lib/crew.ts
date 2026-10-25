@@ -1,4 +1,4 @@
-import { attachAnalyser, resumeAudio, setSpeaking } from "@/lib/level";
+import { setSpeaking } from "@/lib/level";
 
 // The crew's characters and how they speak. Voice is pluggable: anything implementing CrewVoice
 // (browser speech today; a hosted text-to-speech service later) can read lines in character.
@@ -196,8 +196,6 @@ function silentWav(): string {
 export function unlockAudio() {
   if (typeof window === "undefined") return;
   sharedAudio ??= new Audio();
-  attachAnalyser(sharedAudio); // so the speaking ring follows the real voice
-  resumeAudio();
   sharedAudio.src = silentWav();
   sharedAudio.play().catch(() => {});
   unlockBrowserVoice();
@@ -249,6 +247,9 @@ export function cartesiaVoice(fallback: CrewVoice): CrewVoice {
           done();
         };
         audio.onended = audio.onerror = done;
+        // Demo recorder hook: only present when scripts/record-demo sets it up.
+        const log = (window as unknown as { __hcSpeechLog?: object[] }).__hcSpeechLog;
+        log?.push({ at: Date.now(), agent: persona.id, trade: persona.trade ?? null, text: speakable(text) });
         audio.src = url;
         // A touch faster than natural keeps the call moving; pitch is preserved.
         audio.playbackRate = 1.12;

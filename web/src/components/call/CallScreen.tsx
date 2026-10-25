@@ -158,6 +158,7 @@ export default function CallScreen({
         await video.play();
         watch.current = new SceneWatch();
       } catch (e) {
+        if (cancelled) return; // torn down mid-start (e.g. a remount aborting play()): not a real failure
         const denied = e instanceof DOMException && e.name === "NotAllowedError";
         setProblem(
           denied ? "Camera permission was denied. Allow it in settings, or send a photo from your gallery."

@@ -104,7 +104,7 @@ def lawyer_quick_take(case_id: str, issues: list[Issue]) -> None:
     this_call = [m for m in case.chat if m.seq >= case.call_seq]
     already = {m.refs.get("issue_type") for m in this_call if m.agent == "lawyer"}
     sections_said = {m.refs.get("section") for m in this_call if m.agent == "lawyer"}
-    n = sum(1 for m in this_call if m.agent == "lawyer")
+    n = sum(1 for m in this_call if m.agent == "lawyer" and m.refs.get("issue_type"))  # not his greeting
     for issue in issues:
         if issue.type in already or not issue.safety or issue.safety["tier"] not in ("landlord", "pro"):
             continue
