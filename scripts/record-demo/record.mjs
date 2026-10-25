@@ -1,12 +1,13 @@
 // Records the HomeCrew demo end to end on pre-shot footage:
 //   front page -> video call (footage plays as the camera, analyzed live) -> hang up -> report.
-// Output: out/screen.webm (phone-sized screen recording) + out/speech.json (when each crew line
+// Output: out/screen.mp4 (full-resolution phone screen, 780x1688) + out/speech.json (when each crew line
 // started). Then mux.mjs lays the real crew voices onto the video at those moments.
 //
 //   node record.mjs --feed /walkthrough/room1.webm [--url http://localhost:3000] [--renter]
 
 import { chromium } from "playwright";
-import { mkdirSync, writeFileSync, readdirSync, renameSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -26,14 +27,26 @@ const context = await browser.newContext({
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,
-  recordVideo: { dir: OUT, size: { width: 780, height: 1688 } },
 });
 await context.addInitScript(() => {
   window.__hcSpeechLog = [];
   try { localStorage.clear(); } catch {}
 });
 const page = await context.newPage();
-const t0 = Date.now(); // the screen recording starts with the page
+// Playwright's recordVideo captures at CSS-pixel size (a 390x844 box in the corner of the frame), so
+// grab the screen with Chrome's own screencast instead: every changed frame, at 2x, wall-clock stamped.
+const FRAMES = `${OUT}/frames`;
+rmSync(FRAMES, { recursive: true, force: true });
+mkdirSync(FRAMES);
+const frames = []; // [file, wall-clock ms]
+const cdp = await context.newCDPSession(page);
+cdp.on("Page.screencastFrame", ({ data, metadata, sessionId }) => {
+  const file = `${FRAMES}/${String(frames.length).padStart(6, "0")}.jpg`;
+  writeFileSync(file, Buffer.from(data, "base64"));
+  frames.push([file, metadata.timestamp * 1000]);
+  cdp.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
+});
+await cdp.send("Page.startScreencast", { format: "jpeg", quality: 90, maxWidth: 780, maxHeight: 1688 });
 page.on("console", (m) => m.type() === "error" && log("console error:", m.text().slice(0, 160)));
 
 await page.goto(`${BASE}/?feed=${encodeURIComponent(FEED)}`, { waitUntil: "networkidle" });
@@ -89,10 +102,17 @@ if (await write.count()) {
 }
 
 const speech = await page.evaluate(() => window.__hcSpeechLog);
-writeFileSync(`${OUT}/speech.json`, JSON.stringify({ t0, speech }, null, 2));
-await context.close(); // finalizes the video file
+await cdp.send("Page.stopScreencast");
+await context.close();
 await browser.close();
 
-const webm = readdirSync(OUT).filter((f) => f.endsWith(".webm") && f !== "screen.webm").pop();
-renameSync(`${OUT}/${webm}`, `${OUT}/screen.webm`);
-log(`done: ${speech.length} crew lines, out/screen.webm`);
+// Frames only arrive when the screen changes: hold each one until the next, then render 30 fps.
+const t0 = frames[0][1];
+frames.push([frames.at(-1)[0], Date.now()]);
+const list = frames.slice(0, -1).map(([f, at], i) => `file '${f}'\nduration ${((frames[i + 1][1] - at) / 1000).toFixed(3)}`);
+writeFileSync(`${FRAMES}/list.txt`, `ffconcat version 1.0\n${list.join("\n")}\nfile '${frames.at(-1)[0]}'\n`);
+execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", `${FRAMES}/list.txt`,
+  "-vf", "fps=30,scale=780:1688:force_original_aspect_ratio=decrease,pad=780:1688:(ow-iw)/2:(oh-ih)/2",
+  "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", `${OUT}/screen.mp4`]);
+writeFileSync(`${OUT}/speech.json`, JSON.stringify({ t0, speech }, null, 2));
+log(`done: ${speech.length} crew lines, ${frames.length} frames, out/screen.mp4`);

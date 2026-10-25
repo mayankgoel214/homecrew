@@ -1,4 +1,4 @@
-// Lays the crew's real voices onto out/screen.webm at the moments they played during recording.
+// Lays the crew's real voices onto out/screen.mp4 at the moments they played during recording.
 // Each line is re-synthesized from the same text and voice via the API's /tts (Cartesia), sped up
 // 1.12x like the app plays it, and placed with its recorded offset. Output: out/demo.mp4
 //
@@ -11,7 +11,7 @@ const API = process.argv.includes("--api") ? process.argv[process.argv.indexOf("
 const OUT = new URL("./out/", import.meta.url).pathname;
 const { t0, speech } = JSON.parse(readFileSync(`${OUT}/speech.json`, "utf8"));
 
-const inputs = ["-i", `${OUT}/screen.webm`];
+const inputs = ["-i", `${OUT}/screen.mp4`];
 const filters = [];
 for (const [n, line] of speech.entries()) {
   const res = await fetch(`${API}/tts`, {

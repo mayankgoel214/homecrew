@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
+  devIndicators: false, // the "N" badge would show up in demo recordings of the dev server
   // Phones reach the dev server through an HTTPS tunnel (camera needs HTTPS).
   allowedDevOrigins: ["*.trycloudflare.com", "*.ngrok-free.app", "*.ngrok-free.dev"],
   // Proxy the FastAPI backend so the phone only needs one tunnel and there's no CORS.
