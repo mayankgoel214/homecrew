@@ -1,5 +1,7 @@
 # HomeCrew
 
+![HomeCrew: video-call an AI crew about what's wrong with your home](docs/media/hero.png)
+
 **Video-call a crew about what's wrong with your home. Gemma 4 sees the problem, a fixed set of safety rules decides who has to fix it, and for renters the crew cites the Virginia law and writes the repair letter. Free.**
 
 Built at **GDG Build with AI x Hacktoberfest 2026**, Virginia Tech (Oct 24–25, 2026).
